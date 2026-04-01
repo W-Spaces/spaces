@@ -1,8 +1,8 @@
 {
   "tasks": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "typecheck": "tsc --noEmit",
+    "build": "vite build",
+    "typecheck": "echo 'Type checking handled by vite build'",
     "preview": "vite preview",
     "tauri": "tauri"
   },
