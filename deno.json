@@ -1,8 +1,8 @@
 {
   "tasks": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "typecheck": "tsc --noEmit",
+    "build": "vite build",
+    "typecheck": "deno check src/**/*.ts src/**/*.tsx",
     "preview": "vite preview",
     "tauri": "tauri"
   },
