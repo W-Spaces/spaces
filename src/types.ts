@@ -11,7 +11,14 @@ export interface WindowPlacement {
   /** 0â€“1 fraction of monitor width */
   w: number;
   /** 0â€“1 fraction of monitor height */
-  h: number;
+  h: number; /** Absolute physical-pixel left edge of the target monitor (for backend) */
+  monitorX: number;
+  /** Absolute physical-pixel top edge of the target monitor (for backend) */
+  monitorY: number;
+  /** Physical-pixel width of the target monitor (for backend) */
+  monitorWidth: number;
+  /** Physical-pixel height of the target monitor (for backend) */
+  monitorHeight: number;
 }
 
 export interface MonitorInfo {

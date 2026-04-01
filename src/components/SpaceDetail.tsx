@@ -13,6 +13,7 @@ import {
   ChevronUp,
   ChevronDown,
   Monitor,
+  Maximize2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -96,6 +97,7 @@ interface SpaceDetailProps {
     itemId: string,
     placement: WindowPlacement | undefined,
   ) => void;
+  onPlaceWindows: () => void;
 }
 
 export function SpaceDetail({
@@ -109,6 +111,7 @@ export function SpaceDetail({
   onDeleteItem,
   onReorder,
   onPlacementChange,
+  onPlaceWindows,
 }: SpaceDetailProps) {
   const monitors = useMonitors();
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -160,7 +163,6 @@ export function SpaceDetail({
             </TooltipTrigger>
             <TooltipContent>Edit space</TooltipContent>
           </Tooltip>
-
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -175,7 +177,6 @@ export function SpaceDetail({
             </TooltipTrigger>
             <TooltipContent>Delete space</TooltipContent>
           </Tooltip>
-
           <Button
             onClick={() => onLaunch(space.id)}
             disabled={isLaunching || space.items.length === 0}
@@ -184,6 +185,15 @@ export function SpaceDetail({
             <Rocket className="h-4 w-4" />
             {isLaunching ? "Launchingâ€¦" : "Launch"}
           </Button>
+          <Button
+            variant="outline"
+            onClick={onPlaceWindows}
+            disabled={space.items.length === 0}
+            className="gap-2"
+          >
+            <Maximize2 className="h-4 w-4" />
+            Place Windows
+          </Button>{" "}
         </div>
       </header>
 
