@@ -1,0 +1,10 @@
+{
+  "tasks": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "echo 'Type checking handled by vite build'",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "nodeModulesDir": "auto"
+}
