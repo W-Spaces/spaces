@@ -19,7 +19,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import type { SpaceItem, SpaceItemType } from "@/types";
+import type { SpaceItem, SpaceItemType, DiscoveredApp } from "@/types";
+import { AppBrowser } from "./AppBrowser";
 
 interface ItemFormProps {
   open: boolean;
@@ -36,6 +37,7 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
   const [appPath, setAppPath] = useState("");
   const [appArgs, setAppArgs] = useState<string[]>([]);
   const [argInput, setArgInput] = useState("");
+  const [appBrowserOpen, setAppBrowserOpen] = useState(false);
 
   // terminal
   const [termCwd, setTermCwd] = useState("");
@@ -99,6 +101,11 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
     setAppArgs((prev) => prev.filter((_, idx) => idx !== i));
   }
 
+  function handleAppSelect(app: DiscoveredApp) {
+    setAppPath(app.path);
+    if (!name.trim()) setName(app.name);
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
@@ -139,13 +146,14 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
   const isValid = name.trim().length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{initial ? "Edit Item" : "Add Item"}</DialogTitle>
-          <DialogDescription>
-            Configure what to launch when this space is activated.
-          </DialogDescription>
+    <>
+      <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{initial ? "Edit Item" : "Add Item"}</DialogTitle>
+            <DialogDescription>
+              Configure what to launch when this space is activated.
+            </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -187,12 +195,21 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
             <>
               <div className="space-y-2">
                 <Label htmlFor="app-path">Executable Path</Label>
-                <Input
-                  id="app-path"
-                  placeholder="C:\Program Files\...\app.exe"
-                  value={appPath}
-                  onChange={(e) => setAppPath(e.target.value)}
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="app-path"
+                    placeholder="C:\Program Files\...\app.exe"
+                    value={appPath}
+                    onChange={(e) => setAppPath(e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAppBrowserOpen(true)}
+                  >
+                    Browse
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Arguments</Label>
@@ -358,5 +375,11 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
         </form>
       </DialogContent>
     </Dialog>
+    <AppBrowser
+      open={appBrowserOpen}
+      onClose={() => setAppBrowserOpen(false)}
+      onSelect={handleAppSelect}
+    />
+    </>
   );
 }

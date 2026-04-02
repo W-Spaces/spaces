@@ -84,6 +84,12 @@ export interface Space {
   updatedAt: string;
 }
 
+export interface DiscoveredApp {
+  name: string;
+  path: string;
+  iconBase64: string;
+}
+
 export const ITEM_TYPE_LABELS: Record<SpaceItemType, string> = {
   application: "Application",
   terminal: "Terminal",
