@@ -101,3 +101,10 @@ export const SPACE_COLORS = [
   { value: "cyan", label: "Cyan", class: "bg-cyan-500" },
   { value: "yellow", label: "Yellow", class: "bg-yellow-500" },
 ] as const;
+
+// Discovered app from Windows
+export interface DiscoveredApp {
+  name: string;
+  path: string;
+  iconBase64?: string;
+}

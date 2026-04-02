@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { Plus, X, FolderSearch, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +20,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import type { SpaceItem, SpaceItemType } from "@/types";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import type { SpaceItem, SpaceItemType, DiscoveredApp } from "@/types";
 
 interface ItemFormProps {
   open: boolean;
@@ -36,6 +38,12 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
   const [appPath, setAppPath] = useState("");
   const [appArgs, setAppArgs] = useState<string[]>([]);
   const [argInput, setArgInput] = useState("");
+
+  // app browser
+  const [showAppBrowser, setShowAppBrowser] = useState(false);
+  const [discoveredApps, setDiscoveredApps] = useState<DiscoveredApp[]>([]);
+  const [isLoadingApps, setIsLoadingApps] = useState(false);
+  const [appSearch, setAppSearch] = useState("");
 
   // terminal
   const [termCwd, setTermCwd] = useState("");
@@ -186,7 +194,34 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
           {type === "application" && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="app-path">Executable Path</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="app-path">Executable Path</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 text-xs"
+                    onClick={async () => {
+                      setIsLoadingApps(true);
+                      try {
+                        const apps = await invoke<DiscoveredApp[]>("discover_apps");
+                        setDiscoveredApps(apps);
+                        setShowAppBrowser(true);
+                      } catch (e) {
+                        console.error("Failed to discover apps:", e);
+                      } finally {
+                        setIsLoadingApps(false);
+                      }
+                    }}
+                  >
+                    {isLoadingApps ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <FolderSearch className="h-3 w-3" />
+                    )}
+                    Browse
+                  </Button>
+                </div>
                 <Input
                   id="app-path"
                   placeholder="C:\Program Files\...\app.exe"
@@ -345,6 +380,66 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
                 />
               </div>
             </>
+          )}
+
+          {/* App browser dialog */}
+          {showAppBrowser && (
+            <div className="rounded-md border border-border">
+              <div className="flex items-center gap-2 border-b border-border p-3">
+                <Input
+                  placeholder="Search apps..."
+                  value={appSearch}
+                  onChange={(e) => setAppSearch(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAppBrowser(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <ScrollArea className="h-64">
+                {discoveredApps.length === 0 ? (
+                  <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+                    {isLoadingApps ? "Loading..." : "No apps found"}
+                  </div>
+                ) : (
+                  <div className="p-1">
+                    {discoveredApps
+                      .filter((app) =>
+                        app.name.toLowerCase().includes(appSearch.toLowerCase())
+                      )
+                      .slice(0, 50)
+                      .map((app) => (
+                        <button
+                          key={app.path}
+                          type="button"
+                          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                          onClick={() => {
+                            setAppPath(app.path);
+                            setName(app.name);
+                            setShowAppBrowser(false);
+                          }}
+                        >
+                          {app.iconBase64 ? (
+                            <img
+                              src={`data:image/png;base64,${app.iconBase64}`}
+                              alt={app.name}
+                              className="h-6 w-6 object-contain"
+                            />
+                          ) : (
+                            <div className="h-6 w-6 rounded bg-muted" />
+                          )}
+                          <span className="truncate">{app.name}</span>
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
           )}
 
           <DialogFooter>
