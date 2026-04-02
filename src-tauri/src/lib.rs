@@ -528,20 +528,92 @@ fn launch_item_with_desktop(item: &SpaceItem, desktop_id: i64) -> Result<(), Str
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Entry point
+// Saved apps registry
 // ──────────────────────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedApp {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+}
+
+pub struct AppsState {
+    pub apps: Mutex<Vec<SavedApp>>,
+    pub data_file: PathBuf,
+}
+
+impl AppsState {
+    pub fn load(data_file: PathBuf) -> Self {
+        let apps = if data_file.exists() {
+            fs::read_to_string(&data_file)
+                .ok()
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        AppsState {
+            apps: Mutex::new(apps),
+            data_file,
+        }
+    }
+
+    fn persist(&self, apps: &[SavedApp]) -> Result<(), String> {
+        if let Some(parent) = self.data_file.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let json = serde_json::to_string_pretty(apps).map_err(|e| e.to_string())?;
+        fs::write(&self.data_file, json).map_err(|e| e.to_string())
+    }
+}
+
+#[tauri::command]
+fn get_saved_apps(state: State<AppsState>) -> Vec<SavedApp> {
+    state.apps.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn save_app(state: State<AppsState>, name: String, path: String) -> Result<SavedApp, String> {
+    let mut apps = state.apps.lock().unwrap();
+    let app = SavedApp {
+        id: Uuid::new_v4().to_string(),
+        name,
+        path,
+    };
+    apps.push(app.clone());
+    state.persist(&apps)?;
+    Ok(app)
+}
+
+#[tauri::command]
+fn delete_app(state: State<AppsState>, id: String) -> Result<(), String> {
+    let mut apps = state.apps.lock().unwrap();
+    let before = apps.len();
+    apps.retain(|a| a.id != id);
+    if apps.len() == before {
+        return Err(format!("App '{}' not found", id));
+    }
+    state.persist(&apps)
+}
+
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let data_file = app
+            let data_dir = app
                 .path()
                 .app_data_dir()
-                .expect("failed to resolve app data dir")
-                .join("spaces.json");
-            app.manage(SpacesState::load(data_file));
+                .expect("failed to resolve app data dir");
+            let spaces_file = data_dir.join("spaces.json");
+            let apps_file = data_dir.join("apps.json");
+            app.manage(SpacesState::load(spaces_file));
+            app.manage(AppsState::load(apps_file));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -550,6 +622,9 @@ pub fn run() {
             delete_space,
             launch_space,
             get_monitors,
+            get_saved_apps,
+            save_app,
+            delete_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

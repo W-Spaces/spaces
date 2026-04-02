@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ItemForm } from "./ItemForm";
-import type { SpaceItem } from "@/types";
+import type { SpaceItem, SavedApp } from "@/types";
+import * as dialog from "@tauri-apps/plugin-dialog";
 
 const defaultProps = {
   open: true,
@@ -246,6 +247,156 @@ describe("ItemForm", () => {
           cwd: "C:\\project",
         }),
       );
+    });
+  });
+
+  describe("saved apps", () => {
+    const savedApps: SavedApp[] = [
+      { id: "app-1", name: "VS Code", path: "C:\\Code\\Code.exe" },
+      { id: "app-2", name: "Notepad++", path: "C:\\Notepad++\\notepad++.exe" },
+    ];
+
+    it("shows saved apps selector when savedApps are provided", async () => {
+      await act(async () => {
+        render(<ItemForm {...defaultProps} savedApps={savedApps} />);
+      });
+      expect(screen.getByText(/saved apps/i)).toBeInTheDocument();
+    });
+
+    it("does not show saved apps selector when savedApps is empty", async () => {
+      await act(async () => {
+        render(<ItemForm {...defaultProps} savedApps={[]} />);
+      });
+      expect(screen.queryByText(/saved apps/i)).not.toBeInTheDocument();
+    });
+
+    it("shows save as app checkbox for new items", async () => {
+      await act(async () => {
+        render(<ItemForm {...defaultProps} />);
+      });
+      expect(
+        screen.getByLabelText(/save as app for quick access/i),
+      ).toBeInTheDocument();
+    });
+
+    it("does not show save as app checkbox when editing an existing item", async () => {
+      const item: SpaceItem = {
+        id: "1",
+        type: "application",
+        name: "VS Code",
+        path: "C:\\Code\\Code.exe",
+        args: [],
+      };
+      await act(async () => {
+        render(<ItemForm {...defaultProps} initial={item} />);
+      });
+      expect(
+        screen.queryByLabelText(/save as app for quick access/i),
+      ).not.toBeInTheDocument();
+    });
+
+    it("calls onSaveApp when save as app checkbox is checked and form submitted", async () => {
+      const user = userEvent.setup();
+      const onSave = vi.fn();
+      const onSaveApp = vi.fn();
+      await act(async () => {
+        render(
+          <ItemForm
+            {...defaultProps}
+            onSave={onSave}
+            onSaveApp={onSaveApp}
+          />,
+        );
+      });
+
+      await user.type(screen.getByLabelText(/name/i), "My App");
+      await user.type(
+        screen.getByLabelText(/executable path/i),
+        "C:\\myapp.exe",
+      );
+
+      const checkbox = screen.getByLabelText(/save as app for quick access/i);
+      await user.click(checkbox);
+
+      await user.click(screen.getByRole("button", { name: /add item/i }));
+
+      expect(onSave).toHaveBeenCalled();
+      expect(onSaveApp).toHaveBeenCalledWith("My App", "C:\\myapp.exe");
+    });
+
+    it("does not call onSaveApp when checkbox is unchecked", async () => {
+      const user = userEvent.setup();
+      const onSave = vi.fn();
+      const onSaveApp = vi.fn();
+      await act(async () => {
+        render(
+          <ItemForm
+            {...defaultProps}
+            onSave={onSave}
+            onSaveApp={onSaveApp}
+          />,
+        );
+      });
+
+      await user.type(screen.getByLabelText(/name/i), "My App");
+      await user.type(
+        screen.getByLabelText(/executable path/i),
+        "C:\\myapp.exe",
+      );
+
+      await user.click(screen.getByRole("button", { name: /add item/i }));
+
+      expect(onSave).toHaveBeenCalled();
+      expect(onSaveApp).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("browse for executable", () => {
+    it("shows browse button for application type", async () => {
+      await act(async () => {
+        render(<ItemForm {...defaultProps} />);
+      });
+      expect(
+        screen.getByRole("button", { name: /browse for executable/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("fills path from dialog and auto-fills name from filename", async () => {
+      const user = userEvent.setup();
+      vi.mocked(dialog.open).mockResolvedValueOnce(
+        "C:\\Program Files\\MyApp\\myapp.exe",
+      );
+      await act(async () => {
+        render(<ItemForm {...defaultProps} />);
+      });
+
+      await user.click(
+        screen.getByRole("button", { name: /browse for executable/i }),
+      );
+
+      await act(async () => {});
+
+      expect(
+        screen.getByDisplayValue("C:\\Program Files\\MyApp\\myapp.exe"),
+      ).toBeInTheDocument();
+      expect(screen.getByDisplayValue("myapp")).toBeInTheDocument();
+    });
+
+    it("does not overwrite an existing name when browsing", async () => {
+      const user = userEvent.setup();
+      vi.mocked(dialog.open).mockResolvedValueOnce("C:\\other.exe");
+      await act(async () => {
+        render(<ItemForm {...defaultProps} />);
+      });
+
+      await user.type(screen.getByLabelText(/name/i), "Existing Name");
+      await user.click(
+        screen.getByRole("button", { name: /browse for executable/i }),
+      );
+
+      await act(async () => {});
+
+      expect(screen.getByDisplayValue("Existing Name")).toBeInTheDocument();
     });
   });
 });
