@@ -1,4 +1,13 @@
-import { Plus, Rocket, Layers, Star, Folder, Play, Pencil, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Rocket,
+  Layers,
+  Star,
+  Folder,
+  Play,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -122,7 +131,12 @@ export function SpacesSidebar({
               {space.isFavourite && (
                 <Star className="ml-auto h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" />
               )}
-              <span className={cn("shrink-0 text-xs text-muted-foreground", space.isFavourite ? "" : "ml-auto")}>
+              <span
+                className={cn(
+                  "shrink-0 text-xs text-muted-foreground",
+                  space.isFavourite ? "" : "ml-auto",
+                )}
+              >
                 {space.items.length}
               </span>
             </button>
