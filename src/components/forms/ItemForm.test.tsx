@@ -5,7 +5,7 @@ import { ItemForm } from "./ItemForm";
 import type { SpaceItem } from "@/types";
 
 const defaultProps = {
-  open: true,
+  isOpen: true,
   onClose: vi.fn(),
   onSave: vi.fn(),
 };

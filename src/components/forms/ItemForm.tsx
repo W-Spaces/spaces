@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
+import { Plus, X, FolderOpen, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,16 +21,18 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import type { SpaceItem, SpaceItemType } from "@/types";
+import type { SpaceItem, SpaceItemType, SavedApp } from "@/types";
 
 interface ItemFormProps {
-  open: boolean;
+  isOpen: boolean;
   initial?: SpaceItem | null;
+  savedApps?: SavedApp[];
   onClose: () => void;
   onSave: (item: Omit<SpaceItem, "id">) => void;
+  onSavedAppsChange?: () => void;
 }
 
-export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
+export function ItemForm({ isOpen, initial, savedApps = [], onClose, onSave, onSavedAppsChange }: ItemFormProps) {
   const [type, setType] = useState<SpaceItemType>("application");
   const [name, setName] = useState("");
 
@@ -36,6 +40,7 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
   const [appPath, setAppPath] = useState("");
   const [appArgs, setAppArgs] = useState<string[]>([]);
   const [argInput, setArgInput] = useState("");
+  const [saveAsApp, setSaveAsApp] = useState(false);
 
   // terminal
   const [termCwd, setTermCwd] = useState("");
@@ -53,7 +58,7 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
   const [scriptCwd, setScriptCwd] = useState("");
 
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     if (initial) {
       setType(initial.type);
       setName(initial.name);
@@ -99,6 +104,49 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
     setAppArgs((prev) => prev.filter((_, idx) => idx !== i));
   }
 
+  async function browseExecutable() {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [
+          {
+            name: "Executables",
+            extensions: ["exe", "bat", "cmd", "com"],
+          },
+          { name: "All Files", extensions: ["*"] },
+        ],
+      });
+      if (selected && typeof selected === "string") {
+        setAppPath(selected);
+        // Auto-fill name from filename if empty
+        if (!name.trim()) {
+          const filename = selected.split(/[\\/]/).pop() ?? "";
+          const baseName = filename.replace(/\.[^.]+$/, "");
+          setName(baseName);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to browse for executable:", e);
+    }
+  }
+
+  async function handleSaveApp() {
+    if (!appPath.trim() || !name.trim()) return;
+    try {
+      const app: SavedApp = {
+        id: "",
+        name: name.trim(),
+        path: appPath.trim(),
+        lastUsed: new Date().toISOString(),
+      };
+      await invoke<SavedApp>("save_app", { app });
+      setSaveAsApp(false);
+      onSavedAppsChange?.();
+    } catch (e) {
+      console.error("Failed to save app:", e);
+    }
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
@@ -139,7 +187,7 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
   const isValid = name.trim().length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{initial ? "Edit Item" : "Add Item"}</DialogTitle>
@@ -187,12 +235,48 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
             <>
               <div className="space-y-2">
                 <Label htmlFor="app-path">Executable Path</Label>
-                <Input
-                  id="app-path"
-                  placeholder="C:\Program Files\...\app.exe"
-                  value={appPath}
-                  onChange={(e) => setAppPath(e.target.value)}
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="app-path"
+                    placeholder="C:\Program Files\...\app.exe"
+                    value={appPath}
+                    onChange={(e) => setAppPath(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={browseExecutable}
+                    title="Browse"
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="save-as-app"
+                    type="checkbox"
+                    checked={saveAsApp}
+                    onChange={(e) => setSaveAsApp(e.target.checked)}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  <Label htmlFor="save-as-app" className="text-sm font-normal">
+                    Save as app (save path for quick access)
+                  </Label>
+                  {saveAsApp && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSaveApp}
+                      disabled={!appPath.trim() || !name.trim()}
+                    >
+                      <Save className="h-3 w-3 mr-1" />
+                      Save
+                    </Button>
+                  )}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Arguments</Label>

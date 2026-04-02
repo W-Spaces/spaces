@@ -7,10 +7,11 @@ import { SpaceForm } from "@/components/forms/SpaceForm";
 import { ItemForm } from "@/components/forms/ItemForm";
 import { WindowPlacementDialog } from "@/components/WindowPlacementDialog";
 import { Layers } from "lucide-react";
-import type { Space, SpaceItem, WindowPlacement } from "@/types";
+import type { Space, SpaceItem, WindowPlacement, SavedApp } from "@/types";
 
 export default function App() {
   const [spaces, setSpaces] = useState<Space[]>([]);
+  const [savedApps, setSavedApps] = useState<SavedApp[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
 
@@ -38,8 +39,18 @@ export default function App() {
     }
   }, [selectedId]);
 
+  const loadSavedApps = useCallback(async () => {
+    try {
+      const apps = await invoke<SavedApp[]>("get_saved_apps");
+      setSavedApps(apps);
+    } catch (e) {
+      console.error("Failed to load saved apps:", e);
+    }
+  }, []);
+
   useEffect(() => {
     loadSpaces();
+    loadSavedApps();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedSpace = spaces.find((s) => s.id === selectedId) ?? null;
@@ -247,13 +258,15 @@ export default function App() {
         />
 
         <ItemForm
-          open={itemFormOpen}
+          isOpen={itemFormOpen}
           initial={editingItem}
+          savedApps={savedApps}
           onClose={() => {
             setItemFormOpen(false);
             setEditingItem(null);
           }}
           onSave={handleSaveItem}
+          onSavedAppsChange={loadSavedApps}
         />
       </div>
     </TooltipProvider>
