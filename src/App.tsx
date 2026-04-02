@@ -291,8 +291,14 @@ export default function App() {
           groups={groups}
           selectedId={selectedId}
           selectedGroupId={selectedGroupId}
-          onSelect={setSelectedId}
-          onSelectGroup={setSelectedGroupId}
+          onSelect={(id) => {
+            setSelectedId(id);
+            setSelectedGroupId(null);
+          }}
+          onSelectGroup={(id) => {
+            setSelectedGroupId(id);
+            setSelectedId(null);
+          }}
           onNew={openNewSpace}
           onNewGroup={openNewGroup}
         />
