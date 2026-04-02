@@ -17,11 +17,12 @@ These apps launch via a broker process, so when Spaces spawns `notepad.exe`, Win
 
 ## Features
 
-- Multi-monitor workspace management
-- Window placement persistence
-- Application launchers with customizable arguments
-- Script/terminal workspace items
-- URL workspace items
+- **Multi-monitor workspace management** — organize apps across multiple monitors
+- **Window placement persistence** — windows remember their position and size
+- **Application launchers** — launch apps with custom arguments and window placements
+- **Script/Terminal workspaces** — run PowerShell, CMD, or Windows Terminal commands
+- **URL workspace items** — open URLs in your default browser
+- **Human-readable storage** — spaces are saved in TOML format for easy editing and version control
 
 ## Development
 

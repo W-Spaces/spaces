@@ -96,7 +96,7 @@ impl SpacesState {
         let spaces = if data_file.exists() {
             fs::read_to_string(&data_file)
                 .ok()
-                .and_then(|s| serde_json::from_str(&s).ok())
+                .and_then(|s| toml::from_str(&s).ok())
                 .unwrap_or_default()
         } else {
             Vec::new()
@@ -111,8 +111,8 @@ impl SpacesState {
         if let Some(parent) = self.data_file.parent() {
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
-        let json = serde_json::to_string_pretty(spaces).map_err(|e| e.to_string())?;
-        fs::write(&self.data_file, json).map_err(|e| e.to_string())
+        let toml_content = toml::to_string_pretty(spaces).map_err(|e| e.to_string())?;
+        fs::write(&self.data_file, toml_content).map_err(|e| e.to_string())
     }
 }
 
