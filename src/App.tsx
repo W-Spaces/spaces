@@ -4,19 +4,27 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SpacesSidebar } from "@/components/SpacesSidebar";
 import { SpaceDetail } from "@/components/SpaceDetail";
 import { SpaceForm } from "@/components/forms/SpaceForm";
+import { GroupForm } from "@/components/forms/GroupForm";
+import { GroupDetail } from "@/components/GroupDetail";
 import { ItemForm } from "@/components/forms/ItemForm";
 import { WindowPlacementDialog } from "@/components/WindowPlacementDialog";
 import { Layers } from "lucide-react";
-import type { Space, SpaceItem, WindowPlacement } from "@/types";
+import type { Space, SpaceGroup, SpaceItem, WindowPlacement } from "@/types";
 
 export default function App() {
   const [spaces, setSpaces] = useState<Space[]>([]);
+  const [groups, setGroups] = useState<SpaceGroup[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
 
   // Space form state
   const [spaceFormOpen, setSpaceFormOpen] = useState(false);
   const [editingSpace, setEditingSpace] = useState<Space | null>(null);
+
+  // Group form state
+  const [groupFormOpen, setGroupFormOpen] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<SpaceGroup | null>(null);
 
   // Item form state
   const [itemFormOpen, setItemFormOpen] = useState(false);
@@ -38,11 +46,22 @@ export default function App() {
     }
   }, [selectedId]);
 
+  const loadGroups = useCallback(async () => {
+    try {
+      const list = await invoke<SpaceGroup[]>("get_groups");
+      setGroups(list);
+    } catch (e) {
+      console.error("Failed to load groups:", e);
+    }
+  }, []);
+
   useEffect(() => {
     loadSpaces();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    loadGroups();
+  }, []);
 
   const selectedSpace = spaces.find((s) => s.id === selectedId) ?? null;
+  const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
 
   function openNewSpace() {
     setEditingSpace(null);
@@ -52,6 +71,75 @@ export default function App() {
   function openEditSpace(space: Space) {
     setEditingSpace(space);
     setSpaceFormOpen(true);
+  }
+
+  // Group functions
+  function openNewGroup() {
+    setEditingGroup(null);
+    setGroupFormOpen(true);
+  }
+
+  function openEditGroup(group: SpaceGroup) {
+    setEditingGroup(group);
+    setGroupFormOpen(true);
+  }
+
+  async function handleSaveGroup(
+    data: Pick<SpaceGroup, "name" | "description" | "color" | "spaceIds">,
+    id?: string,
+  ) {
+    try {
+      const payload: SpaceGroup = id
+        ? { ...editingGroup!, ...data, id }
+        : {
+            id: "",
+            name: data.name,
+            description: data.description,
+            color: data.color,
+            spaceIds: data.spaceIds,
+            createdAt: "",
+            updatedAt: "",
+          };
+
+      const saved = await invoke<SpaceGroup>("save_group", { group: payload });
+      setGroups((prev) => {
+        const idx = prev.findIndex((g) => g.id === saved.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = saved;
+          return next;
+        }
+        return [...prev, saved];
+      });
+      setGroupFormOpen(false);
+      setEditingGroup(null);
+    } catch (e) {
+      console.error("Failed to save group:", e);
+    }
+  }
+
+  async function handleDeleteGroup(id: string) {
+    try {
+      await invoke("delete_group", { id });
+      setGroups((prev) => prev.filter((g) => g.id !== id));
+      if (selectedGroupId === id) {
+        setSelectedGroupId(null);
+      }
+    } catch (e) {
+      console.error("Failed to delete group:", e);
+    }
+  }
+
+  async function handleLaunchGroup(id: string) {
+    setIsLaunching(true);
+    try {
+      await invoke("launch_group", { id });
+    } catch (e) {
+      console.error("Failed to launch group:", e);
+      alert(`Launch failed: ${e}`);
+    } finally {
+      setIsLaunching(false);
+    }
   }
 
   async function handleSaveSpace(
@@ -210,13 +298,33 @@ export default function App() {
       <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
         <SpacesSidebar
           spaces={spaces}
+          groups={groups}
           selectedId={selectedId}
-          onSelect={setSelectedId}
+          selectedGroupId={selectedGroupId}
+          onSelect={(id) => {
+            setSelectedId(id);
+            setSelectedGroupId(null);
+          }}
+          onSelectGroup={(id) => {
+            setSelectedGroupId(id);
+            setSelectedId(null);
+          }}
           onNew={openNewSpace}
+          onNewGroup={openNewGroup}
         />
 
         <main className="flex-1 overflow-hidden">
-          {selectedSpace ? (
+          {selectedGroup && selectedGroupId ? (
+            <GroupDetail
+              group={selectedGroup}
+              spaces={spaces}
+              isLaunching={isLaunching}
+              onLaunch={handleLaunchGroup}
+              onEdit={openEditGroup}
+              onDelete={handleDeleteGroup}
+              onBack={() => setSelectedGroupId(null)}
+            />
+          ) : selectedSpace ? (
             <>
               <SpaceDetail
                 space={selectedSpace}
@@ -255,6 +363,17 @@ export default function App() {
             setEditingSpace(null);
           }}
           onSave={handleSaveSpace}
+        />
+
+        <GroupForm
+          open={groupFormOpen}
+          spaces={spaces}
+          initial={editingGroup}
+          onClose={() => {
+            setGroupFormOpen(false);
+            setEditingGroup(null);
+          }}
+          onSave={handleSaveGroup}
         />
 
         <ItemForm

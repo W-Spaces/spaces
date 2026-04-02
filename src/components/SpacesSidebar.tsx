@@ -1,15 +1,28 @@
-import { Plus, Rocket, Layers, Star } from "lucide-react";
+import {
+  Plus,
+  Rocket,
+  Layers,
+  Star,
+  Folder,
+  Play,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import type { Space } from "@/types";
+import type { Space, SpaceGroup } from "@/types";
 
 interface SpacesSidebarProps {
   spaces: Space[];
+  groups: SpaceGroup[];
   selectedId: string | null;
+  selectedGroupId: string | null;
   onSelect: (id: string) => void;
+  onSelectGroup: (id: string) => void;
   onNew: () => void;
+  onNewGroup: () => void;
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -25,9 +38,13 @@ const COLOR_MAP: Record<string, string> = {
 
 export function SpacesSidebar({
   spaces,
+  groups,
   selectedId,
+  selectedGroupId,
   onSelect,
+  onSelectGroup,
   onNew,
+  onNewGroup,
 }: SpacesSidebarProps) {
   const sorted = [...spaces].sort((a, b) => {
     if (a.isFavourite === b.isFavourite) return 0;
@@ -44,7 +61,46 @@ export function SpacesSidebar({
 
       <Separator />
 
+      {/* Group list */}
+      {groups.length > 0 && (
+        <>
+          <div className="px-3 py-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Groups
+            </span>
+          </div>
+          <ScrollArea className="max-h-40">
+            <div className="space-y-1 px-2">
+              {groups.map((group) => (
+                <button
+                  key={group.id}
+                  onClick={() => onSelectGroup(group.id)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors text-left",
+                    selectedGroupId === group.id
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                  )}
+                >
+                  <Folder className="h-4 w-4 shrink-0" />
+                  <span className="truncate font-medium">{group.name}</span>
+                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                    {group.spaceIds.length}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
+          <Separator className="my-2" />
+        </>
+      )}
+
       {/* Space list */}
+      <div className="px-3 py-2">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Spaces
+        </span>
+      </div>
       <ScrollArea className="flex-1">
         <div className="space-y-1 p-2">
           {spaces.length === 0 && (
@@ -75,7 +131,12 @@ export function SpacesSidebar({
               {space.isFavourite && (
                 <Star className="ml-auto h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" />
               )}
-              <span className={cn("shrink-0 text-xs text-muted-foreground", space.isFavourite ? "" : "ml-auto")}>
+              <span
+                className={cn(
+                  "shrink-0 text-xs text-muted-foreground",
+                  space.isFavourite ? "" : "ml-auto",
+                )}
+              >
                 {space.items.length}
               </span>
             </button>
@@ -86,15 +147,24 @@ export function SpacesSidebar({
       <Separator />
 
       {/* Footer */}
-      <div className="p-3">
+      <div className="flex gap-2 p-3">
         <Button
           variant="outline"
           size="sm"
-          className="w-full gap-2"
+          className="flex-1 gap-2"
+          onClick={onNewGroup}
+        >
+          <Folder className="h-4 w-4" />
+          Group
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 gap-2"
           onClick={onNew}
         >
           <Plus className="h-4 w-4" />
-          New Space
+          Space
         </Button>
       </div>
 

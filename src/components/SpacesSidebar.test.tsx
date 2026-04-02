@@ -1,8 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SpacesSidebar } from "./SpacesSidebar";
-import type { Space } from "@/types";
+import type { Space, SpaceGroup } from "@/types";
 
 const makeSpace = (overrides: Partial<Space> = {}): Space => ({
   id: "1",
@@ -16,11 +16,26 @@ const makeSpace = (overrides: Partial<Space> = {}): Space => ({
   ...overrides,
 });
 
+const makeGroup = (overrides: Partial<SpaceGroup> = {}): SpaceGroup => ({
+  id: "1",
+  name: "Test Group",
+  description: "A test group",
+  color: "purple",
+  spaceIds: [],
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+  ...overrides,
+});
+
 const defaultProps = {
   spaces: [] as Space[],
+  groups: [] as SpaceGroup[],
   selectedId: null as string | null,
+  selectedGroupId: null as string | null,
   onSelect: vi.fn(),
+  onSelectGroup: vi.fn(),
   onNew: vi.fn(),
+  onNewGroup: vi.fn(),
 };
 
 describe("SpacesSidebar", () => {
@@ -30,7 +45,8 @@ describe("SpacesSidebar", () => {
 
   it("renders sidebar header", () => {
     render(<SpacesSidebar {...defaultProps} />);
-    expect(screen.getByText("Spaces")).toBeInTheDocument();
+    // There are multiple "Spaces" texts (header + section label), get the first one (header)
+    expect(screen.getAllByText("Spaces")[0]).toBeInTheDocument();
   });
 
   it("renders empty state when no spaces", () => {
@@ -79,22 +95,38 @@ describe("SpacesSidebar", () => {
     expect(otherEl).toBeInTheDocument();
   });
 
-  it("renders the New Space button", () => {
-    const onNew = vi.fn();
-    render(<SpacesSidebar {...defaultProps} onNew={onNew} />);
+  it("renders the Space button", () => {
+    render(<SpacesSidebar {...defaultProps} />);
 
-    const newButton = screen.getByRole("button", { name: /new space/i });
-    expect(newButton).toBeInTheDocument();
+    const spaceButton = screen.getByRole("button", { name: /space/i });
+    expect(spaceButton).toBeInTheDocument();
   });
 
-  it("calls onNew when New Space button is clicked", async () => {
+  it("calls onNew when Space button is clicked", async () => {
     const user = userEvent.setup();
     const onNew = vi.fn();
     render(<SpacesSidebar {...defaultProps} onNew={onNew} />);
 
-    await user.click(screen.getByRole("button", { name: /new space/i }));
+    await user.click(screen.getByRole("button", { name: /space/i }));
 
     expect(onNew).toHaveBeenCalled();
+  });
+
+  it("renders the Group button", () => {
+    render(<SpacesSidebar {...defaultProps} />);
+
+    const groupButton = screen.getByRole("button", { name: /group/i });
+    expect(groupButton).toBeInTheDocument();
+  });
+
+  it("calls onNewGroup when Group button is clicked", async () => {
+    const user = userEvent.setup();
+    const onNewGroup = vi.fn();
+    render(<SpacesSidebar {...defaultProps} onNewGroup={onNewGroup} />);
+
+    await user.click(screen.getByRole("button", { name: /group/i }));
+
+    expect(onNewGroup).toHaveBeenCalled();
   });
 
   it("shows item count for each space", () => {
