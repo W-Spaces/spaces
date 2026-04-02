@@ -82,6 +82,7 @@ export interface Space {
   items: SpaceItem[];
   createdAt: string;
   updatedAt: string;
+  isFavourite?: boolean;
 }
 
 export const ITEM_TYPE_LABELS: Record<SpaceItemType, string> = {

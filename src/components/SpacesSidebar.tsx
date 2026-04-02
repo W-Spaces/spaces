@@ -1,4 +1,4 @@
-import { Plus, Rocket, Layers } from "lucide-react";
+import { Plus, Rocket, Layers, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -49,29 +49,41 @@ export function SpacesSidebar({
               Create one to get started.
             </p>
           )}
-          {spaces.map((space) => (
-            <button
-              key={space.id}
-              onClick={() => onSelect(space.id)}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors text-left",
-                selectedId === space.id
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-              )}
-            >
-              <span
+          {spaces
+            .slice()
+            .sort((a, b) => {
+              // Sort favourites first
+              if (a.isFavourite && !b.isFavourite) return -1;
+              if (!a.isFavourite && b.isFavourite) return 1;
+              return a.name.localeCompare(b.name);
+            })
+            .map((space) => (
+              <button
+                key={space.id}
+                onClick={() => onSelect(space.id)}
                 className={cn(
-                  "h-2.5 w-2.5 shrink-0 rounded-full",
-                  COLOR_MAP[space.color] ?? "bg-muted-foreground",
+                  "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors text-left",
+                  selectedId === space.id
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                 )}
-              />
-              <span className="truncate font-medium">{space.name}</span>
-              <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                {space.items.length}
-              </span>
-            </button>
-          ))}
+              >
+                {space.isFavourite ? (
+                  <Star className="h-3.5 w-3.5 shrink-0 fill-yellow-500 text-yellow-500" />
+                ) : (
+                  <span
+                    className={cn(
+                      "h-2.5 w-2.5 shrink-0 rounded-full",
+                      COLOR_MAP[space.color] ?? "bg-muted-foreground",
+                    )}
+                  />
+                )}
+                <span className="truncate font-medium">{space.name}</span>
+                <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                  {space.items.length}
+                </span>
+              </button>
+            ))}
         </div>
       </ScrollArea>
 

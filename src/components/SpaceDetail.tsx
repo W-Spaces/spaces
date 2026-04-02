@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Monitor,
   Maximize2,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +90,7 @@ interface SpaceDetailProps {
   onLaunch: (id: string) => void;
   onEdit: (space: Space) => void;
   onDelete: (id: string) => void;
+  onToggleFavourite: (id: string) => void;
   onAddItem: () => void;
   onEditItem: (item: SpaceItem) => void;
   onDeleteItem: (itemId: string) => void;
@@ -106,6 +108,7 @@ export function SpaceDetail({
   onLaunch,
   onEdit,
   onDelete,
+  onToggleFavourite,
   onAddItem,
   onEditItem,
   onDeleteItem,
@@ -150,6 +153,20 @@ export function SpaceDetail({
         </div>
 
         <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => onToggleFavourite(space.id)}
+                aria-label={space.isFavourite ? "Remove from favourites" : "Add to favourites"}
+                className={space.isFavourite ? "text-yellow-500 border-yellow-500/30" : ""}
+              >
+                <Star className={cn("h-4 w-4", space.isFavourite && "fill-yellow-500")} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{space.isFavourite ? "Remove from favourites" : "Add to favourites"}</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

@@ -102,6 +102,15 @@ export default function App() {
     }
   }
 
+  async function handleToggleFavourite(id: string) {
+    try {
+      const updated = await invoke<Space>("toggle_favourite", { id });
+      setSpaces((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+    } catch (e) {
+      console.error("Failed to toggle favourite:", e);
+    }
+  }
+
   async function handleLaunch(id: string) {
     setIsLaunching(true);
     try {
@@ -214,6 +223,7 @@ export default function App() {
                 onLaunch={handleLaunch}
                 onEdit={openEditSpace}
                 onDelete={handleDeleteSpace}
+                onToggleFavourite={handleToggleFavourite}
                 onAddItem={openAddItem}
                 onEditItem={openEditItem}
                 onDeleteItem={handleDeleteItem}
