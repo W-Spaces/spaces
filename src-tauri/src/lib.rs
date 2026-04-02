@@ -78,10 +78,10 @@ pub struct Space {
     pub description: String,
     pub color: String,
     pub items: Vec<SpaceItem>,
-    pub created_at: String,
-    pub updated_at: String,
     #[serde(default)]
     pub is_favourite: bool,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -278,6 +278,19 @@ fn launch_group(state: State<SpacesState>, id: String) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[tauri::command]
+fn toggle_favourite(state: State<SpacesState>, id: String) -> Result<Space, String> {
+    let mut spaces = state.spaces.lock().unwrap();
+    let space = spaces
+        .iter_mut()
+        .find(|s| s.id == id)
+        .ok_or_else(|| format!("Space '{}' not found", id))?;
+    space.is_favourite = !space.is_favourite;
+    let updated = space.clone();
+    state.persist(&spaces)?;
+    Ok(updated)
 }
 
 #[tauri::command]
@@ -667,6 +680,7 @@ pub fn run() {
             get_spaces,
             save_space,
             delete_space,
+            toggle_favourite,
             launch_space,
             get_groups,
             save_group,

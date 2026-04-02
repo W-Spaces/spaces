@@ -192,11 +192,13 @@ describe("Space", () => {
       description: "My dev environment",
       color: "blue",
       items: [],
+      isFavourite: false,
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
     };
     expect(space.name).toBe("Development");
     expect(space.items).toHaveLength(0);
+    expect(space.isFavourite).toBe(false);
   });
 
   it("accepts a Space with items", () => {
@@ -215,9 +217,11 @@ describe("Space", () => {
         },
         { id: "2", type: "url", name: "Docs", url: "https://docs.rs" },
       ],
+      isFavourite: true,
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
     };
     expect(space.items).toHaveLength(2);
+    expect(space.isFavourite).toBe(true);
   });
 });
