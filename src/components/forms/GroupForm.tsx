@@ -120,7 +120,7 @@ export function GroupForm({ open, spaces, initial, onClose, onSave }: GroupFormP
 
           <Separator />
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label>Spaces in this group</Label>
             {spaces.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
