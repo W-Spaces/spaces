@@ -607,6 +607,7 @@ fn get_monitors(window: tauri::WebviewWindow) -> Vec<MonitorInfo> {
 
 #[cfg(target_os = "windows")]
 mod win32 {
+    use log::{error, info, warn};
     use windows::Win32::{
         Foundation::{CloseHandle, BOOL, HWND, LPARAM, RECT},
         Graphics::Gdi::{EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFO},
@@ -737,16 +738,62 @@ mod win32 {
 
     // ── Windows 10/11 virtual desktop via winvd (IVirtualDesktopManagerInternal) ──
 
+    /// Detects the Windows version and returns the appropriate winvd compatibility version.
+    /// Returns a tuple of (supports_winvd, version_hint).
+    pub fn get_windows_version_info() -> (bool, &'static str) {
+        #[cfg(target_os = "windows")]
+        {
+            use std::process::Command;
+
+            // Get Windows version via PowerShell
+            let output = Command::new("powershell")
+                .args([
+                    "-NoProfile",
+                    "-Command",
+                    "[System.Environment]::OSVersion.Version.Major",
+                ])
+                .output();
+
+            if let Ok(output) = output {
+                if output.status.success() {
+                    let version_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    if let Ok(version) = version_str.parse::<u32>() {
+                        return match version {
+                            10 => (true, "win10"),
+                            11 => (true, "win11"),
+                            _ => (false, "unsupported"),
+                        };
+                    }
+                }
+            }
+            // If detection fails, assume Win10 compatibility
+            (true, "win10")
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            (false, "not_windows")
+        }
+    }
+
     /// Creates a new Windows 10/11 virtual desktop (Task View desktop) and
     /// switches the display to it. Returns the 0-based desktop index on success,
     /// or -1 on failure.
     pub fn create_virtual_desktop() -> i64 {
+        let (supports, version) = get_windows_version_info();
+        if !supports {
+            warn!("Virtual desktops not supported on this OS");
+            return -1;
+        }
+
+        info!("Creating virtual desktop (Windows version: {})", version);
         let count = winvd::get_desktop_count().unwrap_or(0);
         if winvd::create_desktop().is_ok() {
             // Switch the user to the new desktop
             let _ = winvd::switch_desktop(count);
+            info!("Created virtual desktop {}", count);
             count as i64
         } else {
+            error!("Failed to create virtual desktop");
             -1
         }
     }
@@ -758,6 +805,8 @@ mod win32 {
             return;
         }
 
+        info!("Moving window (pid={}) to virtual desktop {}", pid, desktop_index);
+
         // Poll for the window handle (up to ~10 s)
         let mut found = None;
         for _ in 0..200 {
@@ -768,10 +817,14 @@ mod win32 {
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
         let Some(hwnd) = found else {
+            warn!("Window with pid={} not found after polling", pid);
             return;
         };
 
-        let _ = winvd::move_window_to_desktop(desktop_index as u32, &hwnd);
+        match winvd::move_window_to_desktop(desktop_index as u32, &hwnd) {
+            Ok(_) => info!("Successfully moved window to desktop {}", desktop_index),
+            Err(e) => error!("Failed to move window to desktop {}: {:?}", desktop_index, e),
+        }
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
