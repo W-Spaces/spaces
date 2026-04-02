@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -94,7 +95,7 @@ export function GroupForm({ open, spaces, initial, onClose, onSave }: GroupFormP
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label>Color</Label>
             <div className="flex flex-wrap gap-2">
               {SPACE_COLORS.map((c) => (
@@ -115,34 +116,71 @@ export function GroupForm({ open, spaces, initial, onClose, onSave }: GroupFormP
             </div>
           </div>
 
+          <Separator />
+
           <div className="space-y-2">
             <Label>Spaces in this group</Label>
-            <div className="max-h-40 overflow-y-auto space-y-1 rounded-md border border-border p-2">
-              {spaces.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No spaces available. Create some spaces first.</p>
-              ) : (
-                spaces.map((space) => (
-                  <label
-                    key={space.id}
-                    className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedSpaceIds.includes(space.id)}
-                      onChange={() => toggleSpace(space.id)}
-                      className="h-4 w-4 rounded border-border"
-                    />
-                    <span
-                      className={cn(
-                        "h-2.5 w-2.5 shrink-0 rounded-full",
-                        COLOR_MAP[space.color] ?? "bg-muted-foreground"
-                      )}
-                    />
-                    <span className="text-sm">{space.name}</span>
-                  </label>
-                ))
-              )}
-            </div>
+            {spaces.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                No spaces available. Create some spaces first.
+              </p>
+            ) : (
+              <div className="rounded-md border border-border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground w-10">Select</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Name</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground w-12">Color</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {spaces.map((space) => {
+                      const isSelected = selectedSpaceIds.includes(space.id);
+                      return (
+                        <tr
+                          key={space.id}
+                          onClick={() => toggleSpace(space.id)}
+                          className={cn(
+                            "cursor-pointer transition-colors",
+                            isSelected ? "bg-accent" : "hover:bg-muted/50"
+                          )}
+                        >
+                          <td className="px-3 py-2">
+                            <div
+                              className={cn(
+                                "h-4 w-4 rounded border border-border flex items-center justify-center",
+                                isSelected ? "bg-primary border-primary" : "bg-background"
+                              )}
+                            >
+                              {isSelected && (
+                                <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 font-medium">{space.name}</td>
+                          <td className="px-3 py-2">
+                            <span
+                              className={cn(
+                                "inline-block h-3 w-3 rounded-full",
+                                COLOR_MAP[space.color] ?? "bg-muted-foreground"
+                              )}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {selectedSpaceIds.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {selectedSpaceIds.length} space{selectedSpaceIds.length !== 1 ? "s" : ""} selected
+              </p>
+            )}
           </div>
 
           <DialogFooter>
