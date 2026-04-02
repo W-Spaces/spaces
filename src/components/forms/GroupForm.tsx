@@ -96,7 +96,9 @@ export function GroupForm({ open, spaces, initial, onClose, onSave }: GroupFormP
           </div>
 
           <div className="space-y-3">
-            <Label>Color</Label>
+            <div className="pb-1">
+              <Label>Color</Label>
+            </div>
             <div className="flex flex-wrap gap-2">
               {SPACE_COLORS.map((c) => (
                 <button
@@ -131,7 +133,6 @@ export function GroupForm({ open, spaces, initial, onClose, onSave }: GroupFormP
                     <tr>
                       <th className="px-3 py-2 text-left font-medium text-muted-foreground w-10">Select</th>
                       <th className="px-3 py-2 text-left font-medium text-muted-foreground">Name</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground w-12">Color</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -160,14 +161,16 @@ export function GroupForm({ open, spaces, initial, onClose, onSave }: GroupFormP
                               )}
                             </div>
                           </td>
-                          <td className="px-3 py-2 font-medium">{space.name}</td>
                           <td className="px-3 py-2">
-                            <span
-                              className={cn(
-                                "inline-block h-3 w-3 rounded-full",
-                                COLOR_MAP[space.color] ?? "bg-muted-foreground"
-                              )}
-                            />
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={cn(
+                                  "inline-block h-3 w-3 rounded-full shrink-0",
+                                  COLOR_MAP[space.color] ?? "bg-muted-foreground"
+                                )}
+                              />
+                              <span className="font-medium">{space.name}</span>
+                            </div>
                           </td>
                         </tr>
                       );
