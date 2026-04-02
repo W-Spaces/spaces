@@ -101,3 +101,11 @@ export const SPACE_COLORS = [
   { value: "cyan", label: "Cyan", class: "bg-cyan-500" },
   { value: "yellow", label: "Yellow", class: "bg-yellow-500" },
 ] as const;
+
+// Startup configuration types
+export type StartupConfigType = "space" | "group";
+
+export interface StartupConfig {
+  type: StartupConfigType;
+  id: string;
+}

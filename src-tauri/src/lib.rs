@@ -82,6 +82,14 @@ pub struct Space {
     pub updated_at: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupConfig {
+    #[serde(rename = "type")]
+    pub config_type: String,
+    pub id: String,
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // App state – in-memory spaces protected by a Mutex, plus the path to persist
 // ──────────────────────────────────────────────────────────────────────────────
@@ -89,10 +97,11 @@ pub struct Space {
 pub struct SpacesState {
     pub spaces: Mutex<Vec<Space>>,
     pub data_file: PathBuf,
+    pub startup_config: Mutex<Option<StartupConfig>>,
 }
 
 impl SpacesState {
-    pub fn load(data_file: PathBuf) -> Self {
+    pub fn load(data_file: PathBuf, startup_file: PathBuf) -> Self {
         let spaces = if data_file.exists() {
             fs::read_to_string(&data_file)
                 .ok()
@@ -101,9 +110,18 @@ impl SpacesState {
         } else {
             Vec::new()
         };
+        let startup_config = if startup_file.exists() {
+            fs::read_to_string(&startup_file)
+                .ok()
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or(None)
+        } else {
+            None
+        };
         SpacesState {
             spaces: Mutex::new(spaces),
             data_file,
+            startup_config: Mutex::new(startup_config),
         }
     }
 
@@ -113,6 +131,15 @@ impl SpacesState {
         }
         let yaml_content = serde_yaml::to_string(spaces).map_err(|e| e.to_string())?;
         fs::write(&self.data_file, yaml_content).map_err(|e| e.to_string())
+    }
+
+    fn persist_startup(&self, config: &Option<StartupConfig>) -> Result<(), String> {
+        if let Some(parent) = self.data_file.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let startup_file = self.data_file.parent().unwrap().join("startup.json");
+        let json_content = serde_json::to_string(config).map_err(|e| e.to_string())?;
+        fs::write(&startup_file, json_content).map_err(|e| e.to_string())
     }
 }
 
@@ -210,6 +237,54 @@ fn launch_space(state: State<SpacesState>, id: String) -> Result<(), String> {
         launch_item(item)?;
     }
     Ok(())
+}
+
+#[tauri::command]
+fn get_startup_config(state: State<SpacesState>) -> Option<StartupConfig> {
+    state.startup_config.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn set_startup_config(state: State<SpacesState>, config: Option<StartupConfig>) -> Result<(), String> {
+    let mut startup = state.startup_config.lock().unwrap();
+    *startup = config.clone();
+    state.persist_startup(&config)
+}
+
+#[tauri::command]
+fn launch_startup(state: State<SpacesState>) -> Result<(), String> {
+    // Get the startup config and the space id to launch
+    let (config_type, target_id) = {
+        let startup = state.startup_config.lock().unwrap();
+        match startup.clone() {
+            Some(config) => (config.config_type.clone(), config.id.clone()),
+            None => return Err("No startup configuration set".to_string()),
+        }
+    };
+
+    eprintln!("[launch_startup] launching startup config: type={} id={}", config_type, target_id);
+
+    match config_type.as_str() {
+        "space" => {
+            // Get the space data while we have the lock, then release
+            let space = {
+                let spaces = state.spaces.lock().unwrap();
+                spaces.iter().find(|s| s.id == target_id).cloned()
+            };
+
+            if let Some(space) = space {
+                drop(space); // release any remaining refs
+                launch_space(state, target_id)
+            } else {
+                Err(format!("Space '{}' not found", target_id))
+            }
+        }
+        "group" => {
+            // Groups are not implemented on this branch, just log
+            Err("Groups not implemented on this branch".to_string())
+        }
+        _ => Err(format!("Unknown startup config type: {}", config_type))
+    }
 }
 
 #[allow(dead_code)]
@@ -536,12 +611,13 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            let data_file = app
+            let data_dir = app
                 .path()
                 .app_data_dir()
-                .expect("failed to resolve app data dir")
-                .join("spaces.json");
-            app.manage(SpacesState::load(data_file));
+                .expect("failed to resolve app data dir");
+            let data_file = data_dir.join("spaces.json");
+            let startup_file = data_dir.join("startup.json");
+            app.manage(SpacesState::load(data_file, startup_file));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -549,6 +625,9 @@ pub fn run() {
             save_space,
             delete_space,
             launch_space,
+            get_startup_config,
+            set_startup_config,
+            launch_startup,
             get_monitors,
         ])
         .run(tauri::generate_context!())

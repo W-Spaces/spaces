@@ -5,18 +5,23 @@ import { SpacesSidebar } from "@/components/SpacesSidebar";
 import { SpaceDetail } from "@/components/SpaceDetail";
 import { SpaceForm } from "@/components/forms/SpaceForm";
 import { ItemForm } from "@/components/forms/ItemForm";
+import { SettingsDialog } from "@/components/SettingsDialog";
 import { WindowPlacementDialog } from "@/components/WindowPlacementDialog";
 import { Layers } from "lucide-react";
-import type { Space, SpaceItem, WindowPlacement } from "@/types";
+import type { Space, SpaceGroup, SpaceItem, WindowPlacement } from "@/types";
 
 export default function App() {
   const [spaces, setSpaces] = useState<Space[]>([]);
+  const [groups, setGroups] = useState<SpaceGroup[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
 
   // Space form state
   const [spaceFormOpen, setSpaceFormOpen] = useState(false);
   const [editingSpace, setEditingSpace] = useState<Space | null>(null);
+
+  // Settings dialog state
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Item form state
   const [itemFormOpen, setItemFormOpen] = useState(false);
@@ -38,9 +43,20 @@ export default function App() {
     }
   }, [selectedId]);
 
+  const loadGroups = useCallback(async () => {
+    try {
+      const list = await invoke<SpaceGroup[]>("get_groups");
+      setGroups(list);
+    } catch (e) {
+      // Groups may not exist on this branch
+      setGroups([]);
+    }
+  }, []);
+
   useEffect(() => {
     loadSpaces();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    loadGroups();
+  }, []);
 
   const selectedSpace = spaces.find((s) => s.id === selectedId) ?? null;
 
@@ -203,6 +219,7 @@ export default function App() {
           selectedId={selectedId}
           onSelect={setSelectedId}
           onNew={openNewSpace}
+          onSettings={() => setSettingsOpen(true)}
         />
 
         <main className="flex-1 overflow-hidden">
@@ -254,6 +271,13 @@ export default function App() {
             setEditingItem(null);
           }}
           onSave={handleSaveItem}
+        />
+
+        <SettingsDialog
+          open={settingsOpen}
+          spaces={spaces}
+          groups={groups}
+          onClose={() => setSettingsOpen(false)}
         />
       </div>
     </TooltipProvider>
