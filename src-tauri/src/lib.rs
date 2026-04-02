@@ -872,8 +872,6 @@ mod win32 {
         }
     }
 
-
-
     /// Creates a new virtual desktop with the given name and switches to it.
     /// Returns the 0-based desktop index on success, or -1 on failure.
     pub fn create_virtual_desktop_with_name(name: &str) -> i64 {
