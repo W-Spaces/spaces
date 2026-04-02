@@ -1,4 +1,4 @@
-import { Plus, Rocket, Layers } from "lucide-react";
+import { Plus, Rocket, Layers, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -29,6 +29,11 @@ export function SpacesSidebar({
   onSelect,
   onNew,
 }: SpacesSidebarProps) {
+  const sorted = [...spaces].sort((a, b) => {
+    if (a.isFavourite === b.isFavourite) return 0;
+    return a.isFavourite ? -1 : 1;
+  });
+
   return (
     <aside className="flex h-full w-64 flex-col border-r border-border bg-card">
       {/* Header */}
@@ -49,7 +54,7 @@ export function SpacesSidebar({
               Create one to get started.
             </p>
           )}
-          {spaces.map((space) => (
+          {sorted.map((space) => (
             <button
               key={space.id}
               onClick={() => onSelect(space.id)}
@@ -67,7 +72,10 @@ export function SpacesSidebar({
                 )}
               />
               <span className="truncate font-medium">{space.name}</span>
-              <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+              {space.isFavourite && (
+                <Star className="ml-auto h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" />
+              )}
+              <span className={cn("shrink-0 text-xs text-muted-foreground", space.isFavourite ? "" : "ml-auto")}>
                 {space.items.length}
               </span>
             </button>

@@ -66,6 +66,7 @@ export default function App() {
             description: data.description,
             color: data.color,
             items: [],
+            isFavourite: false,
             createdAt: "",
             updatedAt: "",
           };
@@ -99,6 +100,15 @@ export default function App() {
       });
     } catch (e) {
       console.error("Failed to delete space:", e);
+    }
+  }
+
+  async function handleToggleFavourite(id: string) {
+    try {
+      const updated = await invoke<Space>("toggle_favourite", { id });
+      setSpaces((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+    } catch (e) {
+      console.error("Failed to toggle favourite:", e);
     }
   }
 
@@ -214,6 +224,7 @@ export default function App() {
                 onLaunch={handleLaunch}
                 onEdit={openEditSpace}
                 onDelete={handleDeleteSpace}
+                onToggleFavourite={handleToggleFavourite}
                 onAddItem={openAddItem}
                 onEditItem={openEditItem}
                 onDeleteItem={handleDeleteItem}
