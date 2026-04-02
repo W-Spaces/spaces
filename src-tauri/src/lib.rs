@@ -267,7 +267,7 @@ fn launch_group(state: State<SpacesState>, id: String) -> Result<(), String> {
     // Launch each space on its own virtual desktop
     for space in &group_spaces {
         #[cfg(target_os = "windows")]
-        let desktop_id = win32::create_virtual_desktop();
+        let desktop_id = win32::create_virtual_desktop_with_name(&space.name);
 
         for item in &space.items {
             #[cfg(target_os = "windows")]
@@ -319,7 +319,7 @@ fn launch_space(state: State<SpacesState>, id: String) -> Result<(), String> {
     }
 
     #[cfg(target_os = "windows")]
-    let desktop_id = win32::create_virtual_desktop();
+    let desktop_id = win32::create_virtual_desktop_with_name(&space.name);
 
     for item in &space.items {
         #[cfg(target_os = "windows")]
@@ -866,6 +866,25 @@ mod win32 {
     pub fn create_virtual_desktop() -> i64 {
         let count = winvd::get_desktop_count().unwrap_or(0);
         if winvd::create_desktop().is_ok() {
+            // Switch the user to the new desktop
+            let _ = winvd::switch_desktop(count);
+            count as i64
+        } else {
+            -1
+        }
+    }
+
+    /// Creates a new virtual desktop with the given name and switches to it.
+    /// Returns the 0-based desktop index on success, or -1 on failure.
+    pub fn create_virtual_desktop_with_name(name: &str) -> i64 {
+        let count = winvd::get_desktop_count().unwrap_or(0);
+        if winvd::create_desktop().is_ok() {
+            // Try to set the desktop name using IVirtualDesktop
+            if let Ok(desktops) = winvd::get_desktops() {
+                if let Some(desktop) = desktops.get(count as usize) {
+                    let _ = desktop.set_name(name);
+                }
+            }
             // Switch the user to the new desktop
             let _ = winvd::switch_desktop(count);
             count as i64
