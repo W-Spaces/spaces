@@ -10,6 +10,7 @@ const makeSpace = (overrides: Partial<Space> = {}): Space => ({
   description: "A test space",
   color: "blue",
   items: [],
+  isFavourite: false,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
   ...overrides,
@@ -125,5 +126,38 @@ describe("SpacesSidebar", () => {
     // Both space names should be visible
     expect(screen.getByText("Blue Space")).toBeInTheDocument();
     expect(screen.getByText("Green Space")).toBeInTheDocument();
+  });
+
+  it("shows star icon for favourite spaces", () => {
+    const spaces = [
+      makeSpace({ id: "1", name: "Normal Space", isFavourite: false }),
+      makeSpace({ id: "2", name: "Fav Space", isFavourite: true }),
+    ];
+    render(<SpacesSidebar {...defaultProps} spaces={spaces} />);
+
+    // The favourite space button should have an svg star icon
+    const favButton = screen.getByRole("button", { name: /fav space/i });
+    const normalButton = screen.getByRole("button", { name: /normal space/i });
+    // Favourite space's button contains a star SVG
+    expect(favButton.querySelector("svg")).toBeTruthy();
+    // Normal space's button does not have a star (only has the color dot span, not an extra svg)
+    // We check by counting SVGs: favourite has one (the star), normal has none
+    expect(favButton.querySelectorAll("svg").length).toBe(1);
+    expect(normalButton.querySelectorAll("svg").length).toBe(0);
+  });
+
+  it("renders favourite spaces before non-favourite spaces", () => {
+    const spaces = [
+      makeSpace({ id: "1", name: "Normal A", isFavourite: false }),
+      makeSpace({ id: "2", name: "Normal B", isFavourite: false }),
+      makeSpace({ id: "3", name: "Fav Space", isFavourite: true }),
+    ];
+    render(<SpacesSidebar {...defaultProps} spaces={spaces} />);
+
+    const buttons = screen.getAllByRole("button", {
+      name: /Normal A|Normal B|Fav Space/i,
+    });
+    // Favourite should appear first
+    expect(buttons[0]).toHaveTextContent("Fav Space");
   });
 });

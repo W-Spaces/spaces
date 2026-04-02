@@ -80,6 +80,7 @@ export interface Space {
   description: string;
   color: string;
   items: SpaceItem[];
+  isFavourite: boolean;
   createdAt: string;
   updatedAt: string;
 }
