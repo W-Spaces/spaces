@@ -96,7 +96,7 @@ impl SpacesState {
         let spaces = if data_file.exists() {
             fs::read_to_string(&data_file)
                 .ok()
-                .and_then(|s| serde_json::from_str(&s).ok())
+                .and_then(|s| serde_yaml::from_str(&s).ok())
                 .unwrap_or_default()
         } else {
             Vec::new()
@@ -111,8 +111,8 @@ impl SpacesState {
         if let Some(parent) = self.data_file.parent() {
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
-        let json = serde_json::to_string_pretty(spaces).map_err(|e| e.to_string())?;
-        fs::write(&self.data_file, json).map_err(|e| e.to_string())
+        let yaml_content = serde_yaml::to_string(spaces).map_err(|e| e.to_string())?;
+        fs::write(&self.data_file, yaml_content).map_err(|e| e.to_string())
     }
 }
 
@@ -172,13 +172,23 @@ fn launch_space(state: State<SpacesState>, id: String) -> Result<(), String> {
         .clone();
     drop(spaces); // release lock before spawning processes
 
-    eprintln!("[launch_space] launching space '{}' with {} items", space.name, space.items.len());
+    eprintln!(
+        "[launch_space] launching space '{}' with {} items",
+        space.name,
+        space.items.len()
+    );
     for item in &space.items {
         let (item_name, placement) = match item {
-            SpaceItem::Application { name, placement, .. } => (name.as_str(), placement.as_ref()),
-            SpaceItem::Terminal { name, placement, .. } => (name.as_str(), placement.as_ref()),
+            SpaceItem::Application {
+                name, placement, ..
+            } => (name.as_str(), placement.as_ref()),
+            SpaceItem::Terminal {
+                name, placement, ..
+            } => (name.as_str(), placement.as_ref()),
             SpaceItem::Url { name, .. } => (name.as_str(), None),
-            SpaceItem::Script { name, placement, .. } => (name.as_str(), placement.as_ref()),
+            SpaceItem::Script {
+                name, placement, ..
+            } => (name.as_str(), placement.as_ref()),
         };
         if let Some(p) = placement {
             eprintln!(
@@ -195,25 +205,41 @@ fn launch_space(state: State<SpacesState>, id: String) -> Result<(), String> {
 
     for item in &space.items {
         #[cfg(target_os = "windows")]
-        launch_item_with_desktop(&item, desktop_id)?;
+        launch_item_with_desktop(item, desktop_id)?;
         #[cfg(not(target_os = "windows"))]
-        launch_item(&item)?;
+        launch_item(item)?;
     }
     Ok(())
 }
 
+#[allow(dead_code)]
 fn launch_item(item: &SpaceItem) -> Result<(), String> {
     use std::process::Command;
 
     match item {
-        SpaceItem::Application { path, args, placement, .. } => {
+        SpaceItem::Application {
+            path,
+            args,
+            placement,
+            ..
+        } => {
             let child = Command::new(path)
                 .args(args)
                 .spawn()
                 .map_err(|e| format!("Failed to launch application: {e}"))?;
             #[cfg(target_os = "windows")]
             if let Some(p) = placement {
-                win32::place_window_async(child.id(), p.monitor_x, p.monitor_y, p.monitor_width, p.monitor_height, p.x, p.y, p.w, p.h);
+                win32::place_window_async(
+                    child.id(),
+                    p.monitor_x,
+                    p.monitor_y,
+                    p.monitor_width,
+                    p.monitor_height,
+                    p.x,
+                    p.y,
+                    p.w,
+                    p.h,
+                );
             }
             drop(child);
         }
@@ -225,7 +251,14 @@ fn launch_item(item: &SpaceItem) -> Result<(), String> {
                 .map_err(|e| format!("Failed to open URL: {e}"))?;
         }
 
-        SpaceItem::Terminal { name, cwd, commands, shell, placement, .. } => {
+        SpaceItem::Terminal {
+            name,
+            cwd,
+            commands,
+            shell,
+            placement,
+            ..
+        } => {
             let cmd_str = commands.join("; ");
             let child = match shell.as_str() {
                 "wt" => {
@@ -266,19 +299,34 @@ fn launch_item(item: &SpaceItem) -> Result<(), String> {
             };
             #[cfg(target_os = "windows")]
             if let Some(p) = placement {
-                win32::place_window_async(child.id(), p.monitor_x, p.monitor_y, p.monitor_width, p.monitor_height, p.x, p.y, p.w, p.h);
+                win32::place_window_async(
+                    child.id(),
+                    p.monitor_x,
+                    p.monitor_y,
+                    p.monitor_width,
+                    p.monitor_height,
+                    p.x,
+                    p.y,
+                    p.w,
+                    p.h,
+                );
             }
             drop(child);
         }
 
-        SpaceItem::Script { content, shell, cwd, placement, .. } => {
+        SpaceItem::Script {
+            content,
+            shell,
+            cwd,
+            placement,
+            ..
+        } => {
             use std::io::Write;
             let (ext, interpreter_args): (&str, Vec<&str>) = match shell.as_str() {
                 "cmd" => ("bat", vec!["/c"]),
                 _ => ("ps1", vec!["-ExecutionPolicy", "Bypass", "-File"]),
             };
-            let tmp_path =
-                std::env::temp_dir().join(format!("spaces_{}.{}", Uuid::new_v4(), ext));
+            let tmp_path = std::env::temp_dir().join(format!("spaces_{}.{}", Uuid::new_v4(), ext));
             let mut f = fs::File::create(&tmp_path).map_err(|e| e.to_string())?;
             f.write_all(content.as_bytes()).map_err(|e| e.to_string())?;
             drop(f);
@@ -290,10 +338,22 @@ fn launch_item(item: &SpaceItem) -> Result<(), String> {
             if !cwd.is_empty() {
                 cmd.current_dir(cwd);
             }
-            let child = cmd.spawn().map_err(|e| format!("Failed to run script: {e}"))?;
+            let child = cmd
+                .spawn()
+                .map_err(|e| format!("Failed to run script: {e}"))?;
             #[cfg(target_os = "windows")]
             if let Some(p) = placement {
-                win32::place_window_async(child.id(), p.monitor_x, p.monitor_y, p.monitor_width, p.monitor_height, p.x, p.y, p.w, p.h);
+                win32::place_window_async(
+                    child.id(),
+                    p.monitor_x,
+                    p.monitor_y,
+                    p.monitor_width,
+                    p.monitor_height,
+                    p.x,
+                    p.y,
+                    p.w,
+                    p.h,
+                );
             }
             drop(child);
         }
@@ -308,7 +368,12 @@ fn launch_item_with_desktop(item: &SpaceItem, desktop_id: i64) -> Result<(), Str
     use std::process::Command;
 
     match item {
-        SpaceItem::Application { path, args, placement, .. } => {
+        SpaceItem::Application {
+            path,
+            args,
+            placement,
+            ..
+        } => {
             let child = Command::new(path)
                 .args(args)
                 .spawn()
@@ -320,7 +385,17 @@ fn launch_item_with_desktop(item: &SpaceItem, desktop_id: i64) -> Result<(), Str
             std::thread::spawn(move || {
                 win32::move_hwnd_to_desktop(pid, desktop_id);
                 if let Some(p) = placement {
-                    win32::place_window_async(pid, p.monitor_x, p.monitor_y, p.monitor_width, p.monitor_height, p.x, p.y, p.w, p.h);
+                    win32::place_window_async(
+                        pid,
+                        p.monitor_x,
+                        p.monitor_y,
+                        p.monitor_width,
+                        p.monitor_height,
+                        p.x,
+                        p.y,
+                        p.w,
+                        p.h,
+                    );
                 }
             });
         }
@@ -332,29 +407,49 @@ fn launch_item_with_desktop(item: &SpaceItem, desktop_id: i64) -> Result<(), Str
                 .map_err(|e| format!("Failed to open URL: {e}"))?;
         }
 
-        SpaceItem::Terminal { name, cwd, commands, shell, placement, .. } => {
+        SpaceItem::Terminal {
+            name,
+            cwd,
+            commands,
+            shell,
+            placement,
+            ..
+        } => {
             let cmd_str = commands.join("; ");
             let child = match shell.as_str() {
                 "wt" => {
                     let mut cmd = Command::new("wt");
                     cmd.arg("new-tab").args(["--title", name]);
-                    if !cwd.is_empty() { cmd.args(["-d", cwd]); }
+                    if !cwd.is_empty() {
+                        cmd.args(["-d", cwd]);
+                    }
                     if !commands.is_empty() {
                         cmd.args(["powershell", "-NoExit", "-Command", &cmd_str]);
                     }
-                    cmd.spawn().map_err(|e| format!("Failed to open Windows Terminal: {e}"))?
+                    cmd.spawn()
+                        .map_err(|e| format!("Failed to open Windows Terminal: {e}"))?
                 }
                 "powershell" => {
                     let mut cmd = Command::new("powershell");
-                    if !cwd.is_empty() { cmd.args(["-WorkingDirectory", cwd]); }
-                    if !commands.is_empty() { cmd.args(["-NoExit", "-Command", &cmd_str]); }
-                    cmd.spawn().map_err(|e| format!("Failed to open PowerShell: {e}"))?
+                    if !cwd.is_empty() {
+                        cmd.args(["-WorkingDirectory", cwd]);
+                    }
+                    if !commands.is_empty() {
+                        cmd.args(["-NoExit", "-Command", &cmd_str]);
+                    }
+                    cmd.spawn()
+                        .map_err(|e| format!("Failed to open PowerShell: {e}"))?
                 }
                 _ => {
                     let mut cmd = Command::new("cmd");
-                    if !commands.is_empty() { cmd.args(["/k", &commands.join(" & ")]); }
-                    if !cwd.is_empty() { cmd.current_dir(cwd); }
-                    cmd.spawn().map_err(|e| format!("Failed to open CMD: {e}"))?
+                    if !commands.is_empty() {
+                        cmd.args(["/k", &commands.join(" & ")]);
+                    }
+                    if !cwd.is_empty() {
+                        cmd.current_dir(cwd);
+                    }
+                    cmd.spawn()
+                        .map_err(|e| format!("Failed to open CMD: {e}"))?
                 }
             };
             let pid = child.id();
@@ -364,12 +459,28 @@ fn launch_item_with_desktop(item: &SpaceItem, desktop_id: i64) -> Result<(), Str
             std::thread::spawn(move || {
                 win32::move_hwnd_to_desktop(pid, desktop_id);
                 if let Some(p) = placement {
-                    win32::place_window_async(pid, p.monitor_x, p.monitor_y, p.monitor_width, p.monitor_height, p.x, p.y, p.w, p.h);
+                    win32::place_window_async(
+                        pid,
+                        p.monitor_x,
+                        p.monitor_y,
+                        p.monitor_width,
+                        p.monitor_height,
+                        p.x,
+                        p.y,
+                        p.w,
+                        p.h,
+                    );
                 }
             });
         }
 
-        SpaceItem::Script { content, shell, cwd, placement, .. } => {
+        SpaceItem::Script {
+            content,
+            shell,
+            cwd,
+            placement,
+            ..
+        } => {
             use std::io::Write;
             let (ext, interpreter_args) = match shell.as_str() {
                 "cmd" => ("bat", vec!["/c"]),
@@ -382,9 +493,14 @@ fn launch_item_with_desktop(item: &SpaceItem, desktop_id: i64) -> Result<(), Str
 
             let runner = if shell == "cmd" { "cmd" } else { "powershell" };
             let mut cmd = Command::new(runner);
-            cmd.args(&interpreter_args).arg(tmp_path.to_str().unwrap_or_default());
-            if !cwd.is_empty() { cmd.current_dir(cwd); }
-            let child = cmd.spawn().map_err(|e| format!("Failed to run script: {e}"))?;
+            cmd.args(&interpreter_args)
+                .arg(tmp_path.to_str().unwrap_or_default());
+            if !cwd.is_empty() {
+                cmd.current_dir(cwd);
+            }
+            let child = cmd
+                .spawn()
+                .map_err(|e| format!("Failed to run script: {e}"))?;
             let pid = child.id();
             drop(child);
 
@@ -392,7 +508,17 @@ fn launch_item_with_desktop(item: &SpaceItem, desktop_id: i64) -> Result<(), Str
             std::thread::spawn(move || {
                 win32::move_hwnd_to_desktop(pid, desktop_id);
                 if let Some(p) = placement {
-                    win32::place_window_async(pid, p.monitor_x, p.monitor_y, p.monitor_width, p.monitor_height, p.x, p.y, p.w, p.h);
+                    win32::place_window_async(
+                        pid,
+                        p.monitor_x,
+                        p.monitor_y,
+                        p.monitor_width,
+                        p.monitor_height,
+                        p.x,
+                        p.y,
+                        p.w,
+                        p.h,
+                    );
                 }
             });
         }
@@ -482,23 +608,22 @@ fn get_monitors(window: tauri::WebviewWindow) -> Vec<MonitorInfo> {
 #[cfg(target_os = "windows")]
 mod win32 {
     use windows::Win32::{
-        Foundation::{BOOL, CloseHandle, HWND, LPARAM, RECT},
+        Foundation::{CloseHandle, BOOL, HWND, LPARAM, RECT},
         Graphics::Gdi::{EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFO},
         System::Diagnostics::ToolHelp::{
             CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32,
             TH32CS_SNAPPROCESS,
         },
         UI::WindowsAndMessaging::{
-            EnumWindows, GetWindowThreadProcessId, IsWindowVisible, SetWindowPos,
-            ShowWindow, SW_RESTORE, SWP_NOACTIVATE, SWP_NOZORDER,
-            IsIconic, IsZoomed, GetWindowRect,
+            EnumWindows, GetWindowRect, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
+            IsZoomed, SetWindowPos, ShowWindow, SWP_NOACTIVATE, SWP_NOZORDER, SW_RESTORE,
         },
     };
 
-    // ── Monitor enumeration ───────────────────────────────────────────────────
-
+    #[allow(dead_code)]
     struct MonitorCollector(Vec<RECT>);
 
+    #[allow(dead_code)]
     unsafe extern "system" fn enum_monitor_proc(
         hmonitor: HMONITOR,
         _: HDC,
@@ -514,6 +639,7 @@ mod win32 {
         BOOL(1)
     }
 
+    #[allow(dead_code)]
     fn get_monitor_rects() -> Vec<RECT> {
         let mut collector = MonitorCollector(Vec::new());
         unsafe {
@@ -544,7 +670,9 @@ mod win32 {
             if Process32First(snapshot, &mut entry).is_ok() {
                 loop {
                     rows.push((entry.th32ProcessID, entry.th32ParentProcessID));
-                    if Process32Next(snapshot, &mut entry).is_err() { break; }
+                    if Process32Next(snapshot, &mut entry).is_err() {
+                        break;
+                    }
                 }
             }
             let _ = CloseHandle(snapshot);
@@ -583,7 +711,11 @@ mod win32 {
     /// Raw handle lookup — searches the process tree rooted at `pid`.
     pub fn find_hwnd_raw(pid: u32) -> Option<isize> {
         let related_pids = get_descendant_pids(pid);
-        let mut state = FindState { related_pids, hwnd_raw: 0, found_pid: 0 };
+        let mut state = FindState {
+            related_pids,
+            hwnd_raw: 0,
+            found_pid: 0,
+        };
         unsafe {
             let _ = EnumWindows(
                 Some(enum_windows_proc),
@@ -592,7 +724,10 @@ mod win32 {
         }
         if state.hwnd_raw != 0 {
             if state.found_pid != pid {
-                eprintln!("[find_hwnd] pid={pid} — window owned by child pid={}", state.found_pid);
+                eprintln!(
+                    "[find_hwnd] pid={pid} — window owned by child pid={}",
+                    state.found_pid
+                );
             }
             Some(state.hwnd_raw)
         } else {
@@ -619,7 +754,9 @@ mod win32 {
     /// Moves a window (identified by PID) to the virtual desktop at the given
     /// 0-based index. Polls until the window appears (up to ~10 s).
     pub fn move_hwnd_to_desktop(pid: u32, desktop_index: i64) {
-        if desktop_index < 0 { return; }
+        if desktop_index < 0 {
+            return;
+        }
 
         // Poll for the window handle (up to ~10 s)
         let mut found = None;
@@ -630,7 +767,9 @@ mod win32 {
             }
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
-        let Some(hwnd) = found else { return; };
+        let Some(hwnd) = found else {
+            return;
+        };
 
         let _ = winvd::move_window_to_desktop(desktop_index as u32, &hwnd);
     }
@@ -639,6 +778,7 @@ mod win32 {
 
     /// Spawns a background thread that waits for the window to be placeable,
     /// then moves/resizes it using `SetWindowPos`.
+    #[allow(clippy::too_many_arguments)]
     pub fn place_window_async(
         pid: u32,
         monitor_x: i32,
@@ -686,7 +826,8 @@ mod win32 {
                 let _ = GetWindowRect(hwnd, &mut before_rect);
                 eprintln!(
                     "[place_window_async] pid={pid} — before rect: ({},{} {}x{})",
-                    before_rect.left, before_rect.top,
+                    before_rect.left,
+                    before_rect.top,
                     before_rect.right - before_rect.left,
                     before_rect.bottom - before_rect.top
                 );
@@ -704,15 +845,8 @@ mod win32 {
                 std::thread::sleep(std::time::Duration::from_millis(100));
 
                 // Apply placement
-                let result = SetWindowPos(
-                    hwnd,
-                    None,
-                    px,
-                    py,
-                    pw,
-                    ph,
-                    SWP_NOACTIVATE | SWP_NOZORDER,
-                );
+                let result =
+                    SetWindowPos(hwnd, None, px, py, pw, ph, SWP_NOACTIVATE | SWP_NOZORDER);
 
                 // Log result and actual rect after
                 let mut after_rect: RECT = std::mem::zeroed();
@@ -738,4 +872,3 @@ fn app_data_path(app: &AppHandle) -> PathBuf {
         .app_data_dir()
         .expect("failed to resolve app data dir")
 }
-

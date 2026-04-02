@@ -34,6 +34,29 @@ jobs:
       - name: Run unit tests
         run: npm run test
 
+  clippy:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+          components: clippy
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Run clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
   build:
     runs-on: windows-latest
     permissions:

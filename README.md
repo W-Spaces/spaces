@@ -17,11 +17,65 @@ These apps launch via a broker process, so when Spaces spawns `notepad.exe`, Win
 
 ## Features
 
-- Multi-monitor workspace management
-- Window placement persistence
-- Application launchers with customizable arguments
-- Script/terminal workspace items
-- URL workspace items
+- **Multi-monitor workspace management** — organize apps across multiple monitors
+- **Window placement persistence** — windows remember their position and size
+- **Application launchers** — launch apps with custom arguments and window placements
+- **Script/Terminal workspaces** — run PowerShell, CMD, or Windows Terminal commands
+- **URL workspace items** — open URLs in your default browser
+- **Human-readable storage** — spaces are saved in YAML format for easy editing and version control
+
+## Configuration Storage
+
+Spaces are stored in a YAML file at:
+```
+%APPDATA%\com.spaces.app\spaces.yaml
+```
+
+You can manually edit this file to:
+- Add or modify workspace definitions
+- Bulk-import/export configurations
+- Track changes in version control
+
+### YAML Structure
+
+```yaml
+spaces:
+  - id: "<uuid>"
+    name: "Workspace Name"
+    description: "What this space is for"
+    color: "blue|purple|green|orange|red|pink"
+    items:
+      - type: "application"       # Launch an app
+        name: "App Name"
+        path: "C:\\path\\to\\app.exe"
+        args: ["--flag"]
+        placement:                # Optional window position
+          monitor_index: 0        # Which monitor (0, 1, ...)
+          x: 0.0                  # 0-1 fraction of monitor width
+          y: 0.0                  # 0-1 fraction of monitor height
+          w: 0.5                  # Width as fraction of monitor
+          h: 1.0                  # Height as fraction of monitor
+          monitor_x: 0            # Monitor's screen position (pixels)
+          monitor_y: 0
+          monitor_width: 2560     # Monitor resolution
+          monitor_height: 1440
+
+      - type: "terminal"          # Run terminal commands
+        name: "Terminal"
+        shell: "wt|powershell|cmd"
+        cwd: "C:\\working\\directory"
+        commands: ["npm run dev"]
+
+      - type: "url"               # Open URL in browser
+        name: "Documentation"
+        url: "https://example.com"
+
+      - type: "script"            # Run a script
+        name: "Build Script"
+        shell: "powershell|cmd"
+        cwd: "C:\\project"
+        content: "npm run build"
+```
 
 ## Development
 
