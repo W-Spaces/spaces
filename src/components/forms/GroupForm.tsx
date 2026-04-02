@@ -21,10 +21,19 @@ interface GroupFormProps {
   spaces: Space[];
   initial?: SpaceGroup | null;
   onClose: () => void;
-  onSave: (data: Pick<SpaceGroup, "name" | "description" | "color" | "spaceIds">, id?: string) => void;
+  onSave: (
+    data: Pick<SpaceGroup, "name" | "description" | "color" | "spaceIds">,
+    id?: string,
+  ) => void;
 }
 
-export function GroupForm({ open, spaces, initial, onClose, onSave }: GroupFormProps) {
+export function GroupForm({
+  open,
+  spaces,
+  initial,
+  onClose,
+  onSave,
+}: GroupFormProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("blue");
@@ -46,7 +55,7 @@ export function GroupForm({ open, spaces, initial, onClose, onSave }: GroupFormP
 
   function toggleSpace(id: string) {
     setSelectedSpaceIds((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
     );
   }
 
@@ -54,8 +63,13 @@ export function GroupForm({ open, spaces, initial, onClose, onSave }: GroupFormP
     e.preventDefault();
     if (!name.trim()) return;
     onSave(
-      { name: name.trim(), description: description.trim(), color, spaceIds: selectedSpaceIds },
-      initial?.id
+      {
+        name: name.trim(),
+        description: description.trim(),
+        color,
+        spaceIds: selectedSpaceIds,
+      },
+      initial?.id,
     );
   }
 
@@ -121,7 +135,9 @@ export function GroupForm({ open, spaces, initial, onClose, onSave }: GroupFormP
           <Separator />
 
           <div className="space-y-3">
-            <Label>Spaces in this group</Label>
+            <div className="pb-1">
+              <Label>Spaces in this group</Label>
+            </div>
             {spaces.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
                 No spaces available. Create some spaces first.
@@ -131,8 +147,12 @@ export function GroupForm({ open, spaces, initial, onClose, onSave }: GroupFormP
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground w-10">Select</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Name</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground w-10">
+                        Select
+                      </th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                        Name
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -144,19 +164,31 @@ export function GroupForm({ open, spaces, initial, onClose, onSave }: GroupFormP
                           onClick={() => toggleSpace(space.id)}
                           className={cn(
                             "cursor-pointer transition-colors",
-                            isSelected ? "bg-accent" : "hover:bg-muted/50"
+                            isSelected ? "bg-accent" : "hover:bg-muted/50",
                           )}
                         >
                           <td className="px-3 py-2">
                             <div
                               className={cn(
                                 "h-4 w-4 rounded border border-border flex items-center justify-center",
-                                isSelected ? "bg-primary border-primary" : "bg-background"
+                                isSelected
+                                  ? "bg-primary border-primary"
+                                  : "bg-background",
                               )}
                             >
                               {isSelected && (
-                                <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                <svg
+                                  className="h-3 w-3 text-primary-foreground"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={3}
+                                    d="M5 13l4 4L19 7"
+                                  />
                                 </svg>
                               )}
                             </div>
@@ -166,7 +198,8 @@ export function GroupForm({ open, spaces, initial, onClose, onSave }: GroupFormP
                               <span
                                 className={cn(
                                   "inline-block h-3 w-3 rounded-full shrink-0",
-                                  COLOR_MAP[space.color] ?? "bg-muted-foreground"
+                                  COLOR_MAP[space.color] ??
+                                    "bg-muted-foreground",
                                 )}
                               />
                               <span className="font-medium">{space.name}</span>
@@ -181,7 +214,8 @@ export function GroupForm({ open, spaces, initial, onClose, onSave }: GroupFormP
             )}
             {selectedSpaceIds.length > 0 && (
               <p className="text-xs text-muted-foreground mt-1">
-                {selectedSpaceIds.length} space{selectedSpaceIds.length !== 1 ? "s" : ""} selected
+                {selectedSpaceIds.length} space
+                {selectedSpaceIds.length !== 1 ? "s" : ""} selected
               </p>
             )}
           </div>
