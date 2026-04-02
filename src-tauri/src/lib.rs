@@ -872,21 +872,7 @@ mod win32 {
         }
     }
 
-    // ── Windows 10/11 virtual desktop via winvd (IVirtualDesktopManagerInternal) ──
 
-    /// Creates a new Windows 10/11 virtual desktop (Task View desktop) and
-    /// switches the display to it. Returns the 0-based desktop index on success,
-    /// or -1 on failure.
-    pub fn create_virtual_desktop() -> i64 {
-        let count = winvd::get_desktop_count().unwrap_or(0);
-        if winvd::create_desktop().is_ok() {
-            // Switch the user to the new desktop
-            let _ = winvd::switch_desktop(count);
-            count as i64
-        } else {
-            -1
-        }
-    }
 
     /// Creates a new virtual desktop with the given name and switches to it.
     /// Returns the 0-based desktop index on success, or -1 on failure.
