@@ -74,6 +74,14 @@ export interface ScriptItem {
 
 export type SpaceItem = ApplicationItem | TerminalItem | UrlItem | ScriptItem;
 
+// ── Saved apps registry ────────────────────────────────────────────────────
+
+export interface SavedApp {
+  id: string;
+  name: string;
+  path: string;
+}
+
 export interface Space {
   id: string;
   name: string;

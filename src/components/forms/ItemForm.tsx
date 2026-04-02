@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, X, FolderOpen } from "lucide-react";
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,18 +20,22 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import type { SpaceItem, SpaceItemType } from "@/types";
+import type { SpaceItem, SpaceItemType, SavedApp } from "@/types";
 
 interface ItemFormProps {
   open: boolean;
   initial?: SpaceItem | null;
+  savedApps?: SavedApp[];
   onClose: () => void;
   onSave: (item: Omit<SpaceItem, "id">) => void;
+  onSaveApp?: (name: string, path: string) => void;
+  onDeleteApp?: (id: string) => void;
 }
 
-export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
+export function ItemForm({ open, initial, savedApps = [], onClose, onSave, onSaveApp, onDeleteApp }: ItemFormProps) {
   const [type, setType] = useState<SpaceItemType>("application");
   const [name, setName] = useState("");
+  const [saveAsApp, setSaveAsApp] = useState(false);
 
   // application
   const [appPath, setAppPath] = useState("");
@@ -77,6 +82,7 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
       setAppPath("");
       setAppArgs([]);
       setArgInput("");
+      setSaveAsApp(false);
       setTermCwd("");
       setTermShell("wt");
       setTermCommands("");
@@ -97,6 +103,24 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
 
   function removeArg(i: number) {
     setAppArgs((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
+  async function browseForExecutable() {
+    const selected = await openFileDialog({
+      multiple: false,
+      filters: [
+        { name: "Executables", extensions: ["exe", "bat", "cmd", "ps1"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
+    });
+    if (selected && typeof selected === "string") {
+      setAppPath(selected);
+      if (!name.trim()) {
+        const filename = selected.split(/[\\/]/).pop() ?? "";
+        const baseName = filename.replace(/\.[^.]+$/, "");
+        if (baseName) setName(baseName);
+      }
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -134,6 +158,9 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
         break;
     }
     onSave(item);
+    if (type === "application" && saveAsApp && onSaveApp) {
+      onSaveApp(item.name, appPath.trim());
+    }
   }
 
   const isValid = name.trim().length > 0;
@@ -185,14 +212,66 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
           {/* --- Application fields --- */}
           {type === "application" && (
             <>
+              {savedApps.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Saved Apps</Label>
+                  <Select
+                    onValueChange={(id) => {
+                      const app = savedApps.find((a) => a.id === id);
+                      if (app) {
+                        setAppPath(app.path);
+                        if (!name.trim()) setName(app.name);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a saved app…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {savedApps.map((app) => (
+                        <SelectItem key={app.id} value={app.id}>
+                          <span className="flex items-center justify-between gap-2 w-full">
+                            <span>{app.name}</span>
+                            {onDeleteApp && (
+                              <button
+                                type="button"
+                                aria-label={`Remove ${app.name}`}
+                                className="ml-auto text-muted-foreground hover:text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteApp(app.id);
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="app-path">Executable Path</Label>
-                <Input
-                  id="app-path"
-                  placeholder="C:\Program Files\...\app.exe"
-                  value={appPath}
-                  onChange={(e) => setAppPath(e.target.value)}
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="app-path"
+                    placeholder="C:\Program Files\...\app.exe"
+                    value={appPath}
+                    onChange={(e) => setAppPath(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Browse for executable"
+                    onClick={browseForExecutable}
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Arguments</Label>
@@ -234,6 +313,20 @@ export function ItemForm({ open, initial, onClose, onSave }: ItemFormProps) {
                   </div>
                 )}
               </div>
+              {!initial && (
+                <div className="flex items-center gap-2">
+                  <input
+                    id="save-as-app"
+                    type="checkbox"
+                    checked={saveAsApp}
+                    onChange={(e) => setSaveAsApp(e.target.checked)}
+                    className="h-4 w-4 rounded border border-input"
+                  />
+                  <Label htmlFor="save-as-app" className="cursor-pointer font-normal">
+                    Save as app for quick access
+                  </Label>
+                </div>
+              )}
             </>
           )}
 

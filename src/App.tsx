@@ -7,12 +7,15 @@ import { SpaceForm } from "@/components/forms/SpaceForm";
 import { ItemForm } from "@/components/forms/ItemForm";
 import { WindowPlacementDialog } from "@/components/WindowPlacementDialog";
 import { Layers } from "lucide-react";
-import type { Space, SpaceItem, WindowPlacement } from "@/types";
+import type { Space, SpaceItem, WindowPlacement, SavedApp } from "@/types";
 
 export default function App() {
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
+
+  // Saved apps registry
+  const [savedApps, setSavedApps] = useState<SavedApp[]>([]);
 
   // Space form state
   const [spaceFormOpen, setSpaceFormOpen] = useState(false);
@@ -38,8 +41,18 @@ export default function App() {
     }
   }, [selectedId]);
 
+  const loadSavedApps = useCallback(async () => {
+    try {
+      const list = await invoke<SavedApp[]>("get_saved_apps");
+      setSavedApps(list);
+    } catch (e) {
+      console.error("Failed to load saved apps:", e);
+    }
+  }, []);
+
   useEffect(() => {
     loadSpaces();
+    loadSavedApps();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedSpace = spaces.find((s) => s.id === selectedId) ?? null;
@@ -122,6 +135,24 @@ export default function App() {
   function openEditItem(item: SpaceItem) {
     setEditingItem(item);
     setItemFormOpen(true);
+  }
+
+  async function handleSaveApp(name: string, path: string) {
+    try {
+      const app = await invoke<SavedApp>("save_app", { name, path });
+      setSavedApps((prev) => [...prev, app]);
+    } catch (e) {
+      console.error("Failed to save app:", e);
+    }
+  }
+
+  async function handleDeleteApp(id: string) {
+    try {
+      await invoke("delete_app", { id });
+      setSavedApps((prev) => prev.filter((a) => a.id !== id));
+    } catch (e) {
+      console.error("Failed to delete app:", e);
+    }
   }
 
   function openPlacementDialog() {
@@ -249,11 +280,14 @@ export default function App() {
         <ItemForm
           open={itemFormOpen}
           initial={editingItem}
+          savedApps={savedApps}
           onClose={() => {
             setItemFormOpen(false);
             setEditingItem(null);
           }}
           onSave={handleSaveItem}
+          onSaveApp={handleSaveApp}
+          onDeleteApp={handleDeleteApp}
         />
       </div>
     </TooltipProvider>
