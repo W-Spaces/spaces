@@ -46,7 +46,9 @@ Element.prototype.hasPointerCapture = function (_pointerId: number): boolean {
 };
 
 // Element.scrollIntoView — used by Radix Select scroll (jsdom missing this)
-Element.prototype.scrollIntoView = function (_options?: ScrollIntoViewOptions): void {
+Element.prototype.scrollIntoView = function (
+  _options?: ScrollIntoViewOptions,
+): void {
   // no-op polyfill
 };
 

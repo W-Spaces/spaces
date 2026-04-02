@@ -184,7 +184,9 @@ describe("ItemForm", () => {
         url: "https://github.com",
       };
       await act(async () => {
-        render(<ItemForm {...defaultProps} initial={urlItem} onSave={onSave} />);
+        render(
+          <ItemForm {...defaultProps} initial={urlItem} onSave={onSave} />,
+        );
       });
 
       // URL fields should already be visible since we initialized with a URL item
@@ -228,7 +230,9 @@ describe("ItemForm", () => {
         cwd: "C:\\project",
       };
       await act(async () => {
-        render(<ItemForm {...defaultProps} initial={scriptItem} onSave={onSave} />);
+        render(
+          <ItemForm {...defaultProps} initial={scriptItem} onSave={onSave} />,
+        );
       });
 
       await user.click(screen.getByRole("button", { name: /save/i }));
