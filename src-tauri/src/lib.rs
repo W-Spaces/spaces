@@ -83,6 +83,18 @@ pub struct Space {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Discovered app (for app browser)
+// ──────────────────────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscoveredApp {
+    pub name: String,
+    pub path: String,
+    pub icon_base64: String,
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // App state – in-memory spaces protected by a Mutex, plus the path to persist
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -550,6 +562,7 @@ pub fn run() {
             delete_space,
             launch_space,
             get_monitors,
+            discover_apps,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -599,6 +612,19 @@ fn get_monitors(window: tauri::WebviewWindow) -> Vec<MonitorInfo> {
         );
     }
     list
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Discover installed apps
+// ──────────────────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+fn discover_apps() -> Vec<DiscoveredApp> {
+    #[cfg(target_os = "windows")]
+    return win32::scan_installed_apps();
+
+    #[cfg(not(target_os = "windows"))]
+    return vec![];
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -860,6 +886,71 @@ mod win32 {
                 );
             }
         });
+    }
+
+    pub fn scan_installed_apps() -> Vec<super::DiscoveredApp> {
+        use std::process::Command;
+
+        let ps_script = r#"
+$sh = New-Object -ComObject WScript.Shell
+Add-Type -AssemblyName System.Drawing
+$seen = @{}
+$results = [System.Collections.Generic.List[object]]::new()
+$dirs = @(
+    "$env:ProgramData\Microsoft\Windows\Start Menu\Programs",
+    "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
+)
+foreach ($dir in $dirs) {
+    if (-not (Test-Path $dir)) { continue }
+    Get-ChildItem -Path $dir -Recurse -Filter *.lnk -ErrorAction SilentlyContinue | ForEach-Object {
+        try {
+            $lnk = $sh.CreateShortcut($_.FullName)
+            $target = $lnk.TargetPath
+            if (-not $target -or -not $target.EndsWith('.exe', [StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path $target)) { return }
+            $key = $target.ToLower()
+            if ($seen[$key]) { return }
+            $seen[$key] = $true
+            $name = [System.IO.Path]::GetFileNameWithoutExtension($_.Name)
+            $iconB64 = ''
+            try {
+                $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($target)
+                $bmp = $icon.ToBitmap()
+                $ms = New-Object System.IO.MemoryStream
+                $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
+                $iconB64 = [Convert]::ToBase64String($ms.ToArray())
+                $ms.Dispose(); $bmp.Dispose(); $icon.Dispose()
+            } catch {}
+            $results.Add([pscustomobject]@{ name = $name; path = $target; iconBase64 = $iconB64 })
+        } catch {}
+    }
+}
+if ($results.Count -eq 0) { '[]' } else { $results | ConvertTo-Json -Compress -Depth 2 }
+# -Depth 2 is sufficient: each object has only flat string fields (name, path, iconBase64)
+"#;
+
+        let output = match Command::new("powershell")
+            .args(["-NonInteractive", "-NoProfile", "-Command", ps_script])
+            .output()
+        {
+            Ok(o) => o,
+            Err(_) => return vec![],
+        };
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let trimmed = stdout.trim();
+
+        if trimmed.is_empty() {
+            return vec![];
+        }
+
+        // ConvertTo-Json returns a single object (not array) when there is only 1 result
+        if let Ok(apps) = serde_json::from_str::<Vec<super::DiscoveredApp>>(trimmed) {
+            apps
+        } else if let Ok(app) = serde_json::from_str::<super::DiscoveredApp>(trimmed) {
+            vec![app]
+        } else {
+            vec![]
+        }
     }
 }
 

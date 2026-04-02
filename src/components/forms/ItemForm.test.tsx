@@ -170,6 +170,26 @@ describe("ItemForm", () => {
         }),
       );
     });
+
+    it("shows Browse button for application type", async () => {
+      await act(async () => {
+        render(<ItemForm {...defaultProps} />);
+      });
+      expect(screen.getByRole("button", { name: /browse/i })).toBeInTheDocument();
+    });
+
+    it("does not show Browse button for url type", async () => {
+      const urlItem = {
+        id: "u1",
+        type: "url" as const,
+        name: "GitHub",
+        url: "https://github.com",
+      };
+      await act(async () => {
+        render(<ItemForm {...defaultProps} initial={urlItem} />);
+      });
+      expect(screen.queryByRole("button", { name: /browse/i })).not.toBeInTheDocument();
+    });
   });
 
   describe("url item", () => {
