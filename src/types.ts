@@ -101,3 +101,13 @@ export const SPACE_COLORS = [
   { value: "cyan", label: "Cyan", class: "bg-cyan-500" },
   { value: "yellow", label: "Yellow", class: "bg-yellow-500" },
 ] as const;
+
+export interface SpaceGroup {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  spaceIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}

@@ -82,6 +82,18 @@ pub struct Space {
     pub updated_at: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SpaceGroup {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub color: String,
+    pub space_ids: Vec<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // App state – in-memory spaces protected by a Mutex, plus the path to persist
 // ──────────────────────────────────────────────────────────────────────────────
@@ -112,6 +124,36 @@ impl SpacesState {
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
         let yaml_content = serde_yaml::to_string(spaces).map_err(|e| e.to_string())?;
+        fs::write(&self.data_file, yaml_content).map_err(|e| e.to_string())
+    }
+}
+
+pub struct GroupsState {
+    pub groups: Mutex<Vec<SpaceGroup>>,
+    pub data_file: PathBuf,
+}
+
+impl GroupsState {
+    pub fn load(data_file: PathBuf) -> Self {
+        let groups = if data_file.exists() {
+            fs::read_to_string(&data_file)
+                .ok()
+                .and_then(|s| serde_yaml::from_str(&s).ok())
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        GroupsState {
+            groups: Mutex::new(groups),
+            data_file,
+        }
+    }
+
+    fn persist(&self, groups: &[SpaceGroup]) -> Result<(), String> {
+        if let Some(parent) = self.data_file.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let yaml_content = serde_yaml::to_string(groups).map_err(|e| e.to_string())?;
         fs::write(&self.data_file, yaml_content).map_err(|e| e.to_string())
     }
 }
@@ -160,6 +202,99 @@ fn delete_space(state: State<SpacesState>, id: String) -> Result<(), String> {
         return Err(format!("Space '{}' not found", id));
     }
     state.persist(&spaces)
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Group commands
+// ──────────────────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+fn get_groups(state: State<GroupsState>) -> Vec<SpaceGroup> {
+    state.groups.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn save_group(state: State<GroupsState>, group: SpaceGroup) -> Result<SpaceGroup, String> {
+    let mut groups = state.groups.lock().unwrap();
+    let now = Utc::now().to_rfc3339();
+
+    let idx = groups.iter().position(|g| g.id == group.id);
+    let saved = if let Some(i) = idx {
+        let mut updated = group;
+        updated.updated_at = now;
+        groups[i] = updated.clone();
+        updated
+    } else {
+        let mut new_group = group;
+        new_group.id = Uuid::new_v4().to_string();
+        new_group.created_at = now.clone();
+        new_group.updated_at = now;
+        groups.push(new_group.clone());
+        new_group
+    };
+
+    state.persist(&groups)?;
+    Ok(saved)
+}
+
+#[tauri::command]
+fn delete_group(state: State<GroupsState>, id: String) -> Result<(), String> {
+    let mut groups = state.groups.lock().unwrap();
+    let before = groups.len();
+    groups.retain(|g| g.id != id);
+    if groups.len() == before {
+        return Err(format!("Group '{}' not found", id));
+    }
+    state.persist(&groups)
+}
+
+#[tauri::command]
+fn launch_group(
+    spaces_state: State<SpacesState>,
+    groups_state: State<GroupsState>,
+    id: String,
+) -> Result<(), String> {
+    let group = {
+        let groups = groups_state.groups.lock().unwrap();
+        groups
+            .iter()
+            .find(|g| g.id == id)
+            .ok_or_else(|| format!("Group '{}' not found", id))?
+            .clone()
+    };
+
+    let spaces = spaces_state.spaces.lock().unwrap().clone();
+
+    eprintln!(
+        "[launch_group] launching group '{}' with {} spaces",
+        group.name,
+        group.space_ids.len()
+    );
+
+    for space_id in &group.space_ids {
+        let Some(space) = spaces.iter().find(|s| &s.id == space_id) else {
+            eprintln!("[launch_group] space '{}' not found, skipping", space_id);
+            continue;
+        };
+
+        eprintln!(
+            "[launch_group] launching space '{}' with {} items",
+            space.name,
+            space.items.len()
+        );
+
+        #[cfg(target_os = "windows")]
+        let desktop_id = win32::create_virtual_desktop();
+
+        for item in &space.items {
+            #[cfg(target_os = "windows")]
+            launch_item_with_desktop(item, desktop_id)?;
+            #[cfg(not(target_os = "windows"))]
+            launch_item(item)?;
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -536,12 +671,14 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            let data_file = app
+            let app_data_dir = app
                 .path()
                 .app_data_dir()
-                .expect("failed to resolve app data dir")
-                .join("spaces.json");
+                .expect("failed to resolve app data dir");
+            let data_file = app_data_dir.join("spaces.json");
+            let groups_file = app_data_dir.join("groups.json");
             app.manage(SpacesState::load(data_file));
+            app.manage(GroupsState::load(groups_file));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -549,6 +686,10 @@ pub fn run() {
             save_space,
             delete_space,
             launch_space,
+            get_groups,
+            save_group,
+            delete_group,
+            launch_group,
             get_monitors,
         ])
         .run(tauri::generate_context!())

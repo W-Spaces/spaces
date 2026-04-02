@@ -3,6 +3,7 @@ import {
   ITEM_TYPE_LABELS,
   SPACE_COLORS,
   type Space,
+  type SpaceGroup,
   type SpaceItem,
   type ApplicationItem,
   type TerminalItem,
@@ -219,5 +220,54 @@ describe("Space", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
     };
     expect(space.items).toHaveLength(2);
+  });
+});
+
+describe("SpaceGroup", () => {
+  it("accepts a valid SpaceGroup object", () => {
+    const group: SpaceGroup = {
+      id: "group-1",
+      name: "Work Setup",
+      description: "My work desktop setup",
+      color: "purple",
+      spaceIds: [],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    expect(group.name).toBe("Work Setup");
+    expect(group.spaceIds).toHaveLength(0);
+  });
+
+  it("accepts a SpaceGroup with spaceIds", () => {
+    const group: SpaceGroup = {
+      id: "group-2",
+      name: "Dev Environment",
+      description: "",
+      color: "green",
+      spaceIds: ["space-1", "space-2", "space-3"],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    expect(group.spaceIds).toHaveLength(3);
+    expect(group.spaceIds).toContain("space-1");
+  });
+
+  it("has all required fields", () => {
+    const group: SpaceGroup = {
+      id: "group-3",
+      name: "Test",
+      description: "desc",
+      color: "blue",
+      spaceIds: ["s1"],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    expect(group).toHaveProperty("id");
+    expect(group).toHaveProperty("name");
+    expect(group).toHaveProperty("description");
+    expect(group).toHaveProperty("color");
+    expect(group).toHaveProperty("spaceIds");
+    expect(group).toHaveProperty("createdAt");
+    expect(group).toHaveProperty("updatedAt");
   });
 });

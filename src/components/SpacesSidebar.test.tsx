@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SpacesSidebar } from "./SpacesSidebar";
-import type { Space } from "@/types";
+import type { Space, SpaceGroup } from "@/types";
 
 const makeSpace = (overrides: Partial<Space> = {}): Space => ({
   id: "1",
@@ -15,11 +15,26 @@ const makeSpace = (overrides: Partial<Space> = {}): Space => ({
   ...overrides,
 });
 
+const makeGroup = (overrides: Partial<SpaceGroup> = {}): SpaceGroup => ({
+  id: "g1",
+  name: "Test Group",
+  description: "A test group",
+  color: "purple",
+  spaceIds: [],
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+  ...overrides,
+});
+
 const defaultProps = {
   spaces: [] as Space[],
+  groups: [] as SpaceGroup[],
   selectedId: null as string | null,
+  selectedGroupId: null as string | null,
   onSelect: vi.fn(),
+  onSelectGroup: vi.fn(),
   onNew: vi.fn(),
+  onNewGroup: vi.fn(),
 };
 
 describe("SpacesSidebar", () => {
@@ -125,5 +140,70 @@ describe("SpacesSidebar", () => {
     // Both space names should be visible
     expect(screen.getByText("Blue Space")).toBeInTheDocument();
     expect(screen.getByText("Green Space")).toBeInTheDocument();
+  });
+
+  it("renders the Groups section header", () => {
+    render(<SpacesSidebar {...defaultProps} />);
+    expect(screen.getByText("Groups")).toBeInTheDocument();
+  });
+
+  it("renders empty groups message when no groups", () => {
+    render(<SpacesSidebar {...defaultProps} groups={[]} />);
+    expect(screen.getByText(/no groups yet/i)).toBeInTheDocument();
+  });
+
+  it("renders list of groups", () => {
+    const groups = [
+      makeGroup({ id: "g1", name: "Group Alpha" }),
+      makeGroup({ id: "g2", name: "Group Beta" }),
+    ];
+    render(<SpacesSidebar {...defaultProps} groups={groups} />);
+
+    expect(screen.getByText("Group Alpha")).toBeInTheDocument();
+    expect(screen.getByText("Group Beta")).toBeInTheDocument();
+  });
+
+  it("calls onSelectGroup when a group is clicked", async () => {
+    const user = userEvent.setup();
+    const onSelectGroup = vi.fn();
+    const groups = [makeGroup({ id: "g-1", name: "My Group" })];
+    render(
+      <SpacesSidebar
+        {...defaultProps}
+        groups={groups}
+        onSelectGroup={onSelectGroup}
+      />,
+    );
+
+    await user.click(screen.getByText("My Group"));
+
+    expect(onSelectGroup).toHaveBeenCalledWith("g-1");
+  });
+
+  it("renders the New Group button", () => {
+    render(<SpacesSidebar {...defaultProps} />);
+    const newGroupButton = screen.getByRole("button", { name: /new group/i });
+    expect(newGroupButton).toBeInTheDocument();
+  });
+
+  it("calls onNewGroup when New Group button is clicked", async () => {
+    const user = userEvent.setup();
+    const onNewGroup = vi.fn();
+    render(<SpacesSidebar {...defaultProps} onNewGroup={onNewGroup} />);
+
+    await user.click(screen.getByRole("button", { name: /new group/i }));
+
+    expect(onNewGroup).toHaveBeenCalled();
+  });
+
+  it("shows space count for each group", () => {
+    const groups = [
+      makeGroup({ id: "g1", name: "Empty Group", spaceIds: [] }),
+      makeGroup({ id: "g2", name: "Full Group", spaceIds: ["s1", "s2"] }),
+    ];
+    render(<SpacesSidebar {...defaultProps} groups={groups} />);
+
+    expect(screen.getByText("Empty Group")).toBeInTheDocument();
+    expect(screen.getByText("Full Group")).toBeInTheDocument();
   });
 });
