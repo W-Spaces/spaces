@@ -83,6 +83,18 @@ pub struct Space {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Startup config model
+// ──────────────────────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupConfig {
+    #[serde(rename = "type")]
+    pub config_type: String,
+    pub id: String,
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // App state – in-memory spaces protected by a Mutex, plus the path to persist
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -113,6 +125,40 @@ impl SpacesState {
         }
         let yaml_content = serde_yaml::to_string(spaces).map_err(|e| e.to_string())?;
         fs::write(&self.data_file, yaml_content).map_err(|e| e.to_string())
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Startup config state – persisted to startup.json
+// ──────────────────────────────────────────────────────────────────────────────
+
+pub struct StartupConfigState {
+    pub config: Mutex<Option<StartupConfig>>,
+    pub config_file: PathBuf,
+}
+
+impl StartupConfigState {
+    pub fn load(config_file: PathBuf) -> Self {
+        let config = if config_file.exists() {
+            fs::read_to_string(&config_file)
+                .ok()
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .flatten()
+        } else {
+            None
+        };
+        StartupConfigState {
+            config: Mutex::new(config),
+            config_file,
+        }
+    }
+
+    fn persist(&self, config: &Option<StartupConfig>) -> Result<(), String> {
+        if let Some(parent) = self.config_file.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let json_content = serde_json::to_string(config).map_err(|e| e.to_string())?;
+        fs::write(&self.config_file, json_content).map_err(|e| e.to_string())
     }
 }
 
@@ -163,6 +209,50 @@ fn delete_space(state: State<SpacesState>, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_startup_config(
+    startup_state: State<StartupConfigState>,
+) -> Option<StartupConfig> {
+    startup_state.config.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn set_startup_config(
+    startup_state: State<StartupConfigState>,
+    config: Option<StartupConfig>,
+) -> Result<(), String> {
+    {
+        let mut current = startup_state.config.lock().unwrap();
+        *current = config.clone();
+    }
+    startup_state.persist(&config)
+}
+
+#[tauri::command]
+fn launch_startup(
+    spaces_state: State<SpacesState>,
+    startup_state: State<StartupConfigState>,
+) -> Result<(), String> {
+    let config = startup_state.config.lock().unwrap().clone();
+    match config {
+        None => Err("No startup configuration set".to_string()),
+        Some(cfg) => {
+            if cfg.config_type == "space" {
+                let spaces = spaces_state.spaces.lock().unwrap();
+                let space = spaces
+                    .iter()
+                    .find(|s| s.id == cfg.id)
+                    .ok_or_else(|| format!("Startup space '{}' not found", cfg.id))?
+                    .clone();
+                drop(spaces);
+                launch_space_inner(space)
+            } else {
+                Err(format!("Unsupported startup config type: {}", cfg.config_type))
+            }
+        }
+    }
+}
+
+#[tauri::command]
 fn launch_space(state: State<SpacesState>, id: String) -> Result<(), String> {
     let spaces = state.spaces.lock().unwrap();
     let space = spaces
@@ -171,7 +261,10 @@ fn launch_space(state: State<SpacesState>, id: String) -> Result<(), String> {
         .ok_or_else(|| format!("Space '{}' not found", id))?
         .clone();
     drop(spaces); // release lock before spawning processes
+    launch_space_inner(space)
+}
 
+fn launch_space_inner(space: Space) -> Result<(), String> {
     eprintln!(
         "[launch_space] launching space '{}' with {} items",
         space.name,
@@ -536,12 +629,14 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            let data_file = app
+            let app_data_dir = app
                 .path()
                 .app_data_dir()
-                .expect("failed to resolve app data dir")
-                .join("spaces.json");
+                .expect("failed to resolve app data dir");
+            let data_file = app_data_dir.join("spaces.json");
+            let startup_file = app_data_dir.join("startup.json");
             app.manage(SpacesState::load(data_file));
+            app.manage(StartupConfigState::load(startup_file));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -550,6 +645,9 @@ pub fn run() {
             delete_space,
             launch_space,
             get_monitors,
+            get_startup_config,
+            set_startup_config,
+            launch_startup,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

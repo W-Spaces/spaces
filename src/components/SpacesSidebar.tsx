@@ -1,4 +1,4 @@
-import { Plus, Rocket, Layers } from "lucide-react";
+import { Plus, Rocket, Layers, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -10,6 +10,7 @@ interface SpacesSidebarProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
+  onSettings: () => void;
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -28,6 +29,7 @@ export function SpacesSidebar({
   selectedId,
   onSelect,
   onNew,
+  onSettings,
 }: SpacesSidebarProps) {
   return (
     <aside className="flex h-full w-64 flex-col border-r border-border bg-card">
@@ -35,6 +37,15 @@ export function SpacesSidebar({
       <div className="flex items-center gap-2 px-4 py-4">
         <Layers className="h-5 w-5 text-primary" />
         <span className="text-base font-semibold tracking-tight">Spaces</span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="ml-auto h-7 w-7"
+          onClick={onSettings}
+          aria-label="Settings"
+        >
+          <Settings className="h-4 w-4 text-muted-foreground" />
+        </Button>
       </div>
 
       <Separator />

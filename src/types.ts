@@ -84,6 +84,11 @@ export interface Space {
   updatedAt: string;
 }
 
+export interface StartupConfig {
+  type: "space" | "group";
+  id: string;
+}
+
 export const ITEM_TYPE_LABELS: Record<SpaceItemType, string> = {
   application: "Application",
   terminal: "Terminal",

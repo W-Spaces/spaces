@@ -20,6 +20,7 @@ const defaultProps = {
   selectedId: null as string | null,
   onSelect: vi.fn(),
   onNew: vi.fn(),
+  onSettings: vi.fn(),
 };
 
 describe("SpacesSidebar", () => {
@@ -94,6 +95,21 @@ describe("SpacesSidebar", () => {
     await user.click(screen.getByRole("button", { name: /new space/i }));
 
     expect(onNew).toHaveBeenCalled();
+  });
+
+  it("renders the Settings gear icon button", () => {
+    render(<SpacesSidebar {...defaultProps} />);
+    expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
+  });
+
+  it("calls onSettings when Settings button is clicked", async () => {
+    const user = userEvent.setup();
+    const onSettings = vi.fn();
+    render(<SpacesSidebar {...defaultProps} onSettings={onSettings} />);
+
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+
+    expect(onSettings).toHaveBeenCalled();
   });
 
   it("shows item count for each space", () => {
