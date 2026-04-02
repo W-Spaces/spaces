@@ -79,6 +79,7 @@ export interface Space {
   name: string;
   description: string;
   color: string;
+  icon?: string;
   items: SpaceItem[];
   createdAt: string;
   updatedAt: string;

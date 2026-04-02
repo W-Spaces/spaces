@@ -11,38 +11,72 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { Space } from "@/types";
 import { SPACE_COLORS } from "@/types";
+
+// Common icons for spaces
+const SPACE_ICONS = [
+  { value: "Rocket", label: "Rocket" },
+  { value: "Code", label: "Code" },
+  { value: "Terminal", label: "Terminal" },
+  { value: "Briefcase", label: "Briefcase" },
+  { value: "Home", label: "Home" },
+  { value: "Heart", label: "Heart" },
+  { value: "Star", label: "Star" },
+  { value: "Bookmark", label: "Bookmark" },
+  { value: "Folder", label: "Folder" },
+  { value: "Mail", label: "Mail" },
+  { value: "Calendar", label: "Calendar" },
+  { value: "Camera", label: "Camera" },
+  { value: "Music", label: "Music" },
+  { value: "Video", label: "Video" },
+  { value: "Gamepad2", label: "Gamepad" },
+  { value: "Coffee", label: "Coffee" },
+  { value: "Book", label: "Book" },
+  { value: "GraduationCap", label: "Education" },
+  { value: "Wrench", label: "Tools" },
+  { value: "Settings", label: "Settings" },
+];
 
 interface SpaceFormProps {
   open: boolean;
   initial?: Space | null;
   onClose: () => void;
-  onSave: (data: Pick<Space, "name" | "description" | "color">) => void;
+  onSave: (data: Pick<Space, "name" | "description" | "color" | "icon">) => void;
 }
 
 export function SpaceForm({ open, initial, onClose, onSave }: SpaceFormProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("blue");
+  const [icon, setIcon] = useState<string>("Rocket");
 
   useEffect(() => {
     if (initial) {
       setName(initial.name);
       setDescription(initial.description);
       setColor(initial.color);
+      setIcon(initial.icon ?? "Rocket");
     } else {
       setName("");
       setDescription("");
       setColor("blue");
+      setIcon("Rocket");
     }
   }, [initial, open]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    onSave({ name: name.trim(), description: description.trim(), color });
+    onSave({ name: name.trim(), description: description.trim(), color, icon });
   }
 
   return (
@@ -100,6 +134,22 @@ export function SpaceForm({ open, initial, onClose, onSave }: SpaceFormProps) {
                 />
               ))}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="space-icon">Icon</Label>
+            <Select value={icon} onValueChange={setIcon}>
+              <SelectTrigger id="space-icon">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SPACE_ICONS.map((ic) => (
+                  <SelectItem key={ic.value} value={ic.value}>
+                    {ic.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <DialogFooter>

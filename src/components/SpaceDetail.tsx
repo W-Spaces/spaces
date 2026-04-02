@@ -14,6 +14,24 @@ import {
   ChevronDown,
   Monitor,
   Maximize2,
+  Code,
+  Briefcase,
+  Home,
+  Heart,
+  Star,
+  Bookmark,
+  Folder,
+  Mail,
+  Calendar,
+  Camera,
+  Music,
+  Video,
+  Gamepad2,
+  Coffee,
+  Book,
+  GraduationCap,
+  Wrench,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +75,30 @@ const MONITOR_DOT: Record<SpaceItemType, string> = {
   terminal: "bg-green-500",
   url: "bg-purple-500",
   script: "bg-orange-500",
+};
+
+// Icon map for space icons
+const SPACE_ICON_MAP: Record<string, React.ReactNode> = {
+  Rocket: <Rocket className="h-5 w-5 text-white" />,
+  Code: <Code className="h-5 w-5 text-white" />,
+  Terminal: <Terminal className="h-5 w-5 text-white" />,
+  Briefcase: <Briefcase className="h-5 w-5 text-white" />,
+  Home: <Home className="h-5 w-5 text-white" />,
+  Heart: <Heart className="h-5 w-5 text-white" />,
+  Star: <Star className="h-5 w-5 text-white" />,
+  Bookmark: <Bookmark className="h-5 w-5 text-white" />,
+  Folder: <Folder className="h-5 w-5 text-white" />,
+  Mail: <Mail className="h-5 w-5 text-white" />,
+  Calendar: <Calendar className="h-5 w-5 text-white" />,
+  Camera: <Camera className="h-5 w-5 text-white" />,
+  Music: <Music className="h-5 w-5 text-white" />,
+  Video: <Video className="h-5 w-5 text-white" />,
+  Gamepad2: <Gamepad2 className="h-5 w-5 text-white" />,
+  Coffee: <Coffee className="h-5 w-5 text-white" />,
+  Book: <Book className="h-5 w-5 text-white" />,
+  GraduationCap: <GraduationCap className="h-5 w-5 text-white" />,
+  Wrench: <Wrench className="h-5 w-5 text-white" />,
+  Settings: <Settings className="h-5 w-5 text-white" />,
 };
 
 const COLOR_MAP: Record<string, string> = {
@@ -137,7 +179,7 @@ export function SpaceDetail({
               COLOR_MAP[space.color] ?? "bg-muted",
             )}
           >
-            <Rocket className="h-5 w-5 text-white" />
+            {SPACE_ICON_MAP[space.icon ?? "Rocket"] ?? <Rocket className="h-5 w-5 text-white" />}
           </span>
           <div>
             <h1 className="text-xl font-semibold">{space.name}</h1>
