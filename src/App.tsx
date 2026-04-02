@@ -6,8 +6,9 @@ import { SpaceDetail } from "@/components/SpaceDetail";
 import { SpaceForm } from "@/components/forms/SpaceForm";
 import { ItemForm } from "@/components/forms/ItemForm";
 import { WindowPlacementDialog } from "@/components/WindowPlacementDialog";
+import { SettingsDialog } from "@/components/SettingsDialog";
 import { Layers } from "lucide-react";
-import type { Space, SpaceItem, WindowPlacement } from "@/types";
+import type { Space, SpaceItem, WindowPlacement, StartupConfig } from "@/types";
 
 export default function App() {
   const [spaces, setSpaces] = useState<Space[]>([]);
@@ -26,6 +27,10 @@ export default function App() {
   const [placementDialogOpen, setPlacementDialogOpen] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
+  // Settings dialog state
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [startupConfig, setStartupConfig] = useState<StartupConfig | null>(null);
+
   const loadSpaces = useCallback(async () => {
     try {
       const list = await invoke<Space[]>("get_spaces");
@@ -38,8 +43,18 @@ export default function App() {
     }
   }, [selectedId]);
 
+  const loadStartupConfig = useCallback(async () => {
+    try {
+      const config = await invoke<StartupConfig | null>("get_startup_config");
+      setStartupConfig(config);
+    } catch (e) {
+      console.error("Failed to load startup config:", e);
+    }
+  }, []);
+
   useEffect(() => {
     loadSpaces();
+    loadStartupConfig();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedSpace = spaces.find((s) => s.id === selectedId) ?? null;
@@ -99,6 +114,16 @@ export default function App() {
       });
     } catch (e) {
       console.error("Failed to delete space:", e);
+    }
+  }
+
+  async function handleSaveStartupConfig(config: StartupConfig | null) {
+    try {
+      await invoke("set_startup_config", { config });
+      setStartupConfig(config);
+      setSettingsOpen(false);
+    } catch (e) {
+      console.error("Failed to save startup config:", e);
     }
   }
 
@@ -203,6 +228,7 @@ export default function App() {
           selectedId={selectedId}
           onSelect={setSelectedId}
           onNew={openNewSpace}
+          onSettings={() => setSettingsOpen(true)}
         />
 
         <main className="flex-1 overflow-hidden">
@@ -254,6 +280,14 @@ export default function App() {
             setEditingItem(null);
           }}
           onSave={handleSaveItem}
+        />
+
+        <SettingsDialog
+          open={settingsOpen}
+          spaces={spaces}
+          startupConfig={startupConfig}
+          onClose={() => setSettingsOpen(false)}
+          onSave={handleSaveStartupConfig}
         />
       </div>
     </TooltipProvider>
