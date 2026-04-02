@@ -1,4 +1,5 @@
 use chrono::Utc;
+use log::{info, warn, LevelFilter};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -122,7 +123,9 @@ impl SpacesState {
 
 #[tauri::command]
 fn get_spaces(state: State<SpacesState>) -> Vec<Space> {
-    state.spaces.lock().unwrap().clone()
+    let spaces = state.spaces.lock().unwrap().clone();
+    info!("[get_spaces] returning {} space(s)", spaces.len());
+    spaces
 }
 
 #[tauri::command]
@@ -148,6 +151,7 @@ fn save_space(state: State<SpacesState>, space: Space) -> Result<Space, String> 
     };
 
     state.persist(&spaces)?;
+    info!("[save_space] saved space '{}' (id={})", saved.name, saved.id);
     Ok(saved)
 }
 
@@ -157,8 +161,10 @@ fn delete_space(state: State<SpacesState>, id: String) -> Result<(), String> {
     let before = spaces.len();
     spaces.retain(|s| s.id != id);
     if spaces.len() == before {
+        warn!("[delete_space] space '{}' not found", id);
         return Err(format!("Space '{}' not found", id));
     }
+    info!("[delete_space] deleted space '{}'", id);
     state.persist(&spaces)
 }
 
@@ -172,7 +178,7 @@ fn launch_space(state: State<SpacesState>, id: String) -> Result<(), String> {
         .clone();
     drop(spaces); // release lock before spawning processes
 
-    eprintln!(
+    info!(
         "[launch_space] launching space '{}' with {} items",
         space.name,
         space.items.len()
@@ -191,12 +197,12 @@ fn launch_space(state: State<SpacesState>, id: String) -> Result<(), String> {
             } => (name.as_str(), placement.as_ref()),
         };
         if let Some(p) = placement {
-            eprintln!(
+            info!(
                 "  item '{}': placement monitorIndex={} monitorX={} monitorY={} monitorW={} monitorH={} x={:.3} y={:.3} w={:.3} h={:.3}",
                 item_name, p.monitor_index, p.monitor_x, p.monitor_y, p.monitor_width, p.monitor_height, p.x, p.y, p.w, p.h
             );
         } else {
-            eprintln!("  item '{}': no placement", item_name);
+            info!("  item '{}': no placement", item_name);
         }
     }
 
@@ -536,11 +542,27 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            let data_file = app
+            let app_data_dir = app
                 .path()
                 .app_data_dir()
-                .expect("failed to resolve app data dir")
-                .join("spaces.json");
+                .expect("failed to resolve app data dir");
+            fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
+
+            let log_path = app_data_dir.join("spaces.log");
+            let log_file = fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&log_path)
+                .unwrap_or_else(|e| panic!("failed to open log file {}: {}", log_path.display(), e));
+
+            env_logger::Builder::new()
+                .filter_level(LevelFilter::Info)
+                .format_timestamp_secs()
+                .target(env_logger::Target::Pipe(Box::new(log_file)))
+                .try_init()
+                .unwrap_or_else(|e| eprintln!("failed to initialize logger: {e}"));
+
+            let data_file = app_data_dir.join("spaces.json");
             app.manage(SpacesState::load(data_file));
             Ok(())
         })
@@ -591,9 +613,9 @@ fn get_monitors(window: tauri::WebviewWindow) -> Vec<MonitorInfo> {
             scale_factor: m.scale_factor(),
         })
         .collect::<Vec<_>>();
-    eprintln!("[get_monitors] reporting {} monitors:", list.len());
+    info!("[get_monitors] reporting {} monitors:", list.len());
     for m in &list {
-        eprintln!(
+        info!(
             "  [{}] {} | pos=({},{}) | size={}x{} | scale={}",
             m.index, m.name, m.x, m.y, m.width, m.height, m.scale_factor
         );
@@ -607,6 +629,7 @@ fn get_monitors(window: tauri::WebviewWindow) -> Vec<MonitorInfo> {
 
 #[cfg(target_os = "windows")]
 mod win32 {
+    use log::{error, info};
     use windows::Win32::{
         Foundation::{CloseHandle, BOOL, HWND, LPARAM, RECT},
         Graphics::Gdi::{EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFO},
@@ -724,7 +747,7 @@ mod win32 {
         }
         if state.hwnd_raw != 0 {
             if state.found_pid != pid {
-                eprintln!(
+                info!(
                     "[find_hwnd] pid={pid} — window owned by child pid={}",
                     state.found_pid
                 );
@@ -799,7 +822,7 @@ mod win32 {
         let pw: i32 = (w * mw) as i32;
         let ph: i32 = (h * mh) as i32;
 
-        eprintln!(
+        info!(
             "[place_window_async] pid={pid} | monitor=({monitor_x},{monitor_y} {monitor_width}x{monitor_height}) | frac=({x:.3},{y:.3} {w:.3}x{h:.3}) | target=({px},{py} {pw}x{ph})"
         );
 
@@ -814,17 +837,17 @@ mod win32 {
                 std::thread::sleep(std::time::Duration::from_millis(50));
             }
             let Some(hwnd) = hwnd_opt else {
-                eprintln!("[place_window_async] pid={pid} — HWND not found after 10 s, giving up");
+                error!("[place_window_async] pid={pid} — HWND not found after 10 s, giving up");
                 return;
             };
 
-            eprintln!("[place_window_async] pid={pid} — found HWND {:?}", hwnd);
+            info!("[place_window_async] pid={pid} — found HWND {:?}", hwnd);
 
             unsafe {
                 // Log current rect before any changes
                 let mut before_rect: RECT = std::mem::zeroed();
                 let _ = GetWindowRect(hwnd, &mut before_rect);
-                eprintln!(
+                info!(
                     "[place_window_async] pid={pid} — before rect: ({},{} {}x{})",
                     before_rect.left,
                     before_rect.top,
@@ -851,7 +874,7 @@ mod win32 {
                 // Log result and actual rect after
                 let mut after_rect: RECT = std::mem::zeroed();
                 let _ = GetWindowRect(hwnd, &mut after_rect);
-                eprintln!(
+                info!(
                     "[place_window_async] pid={pid} — SetWindowPos result={:?} | after rect: ({},{} {}x{})",
                     result,
                     after_rect.left, after_rect.top,
