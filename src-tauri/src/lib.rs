@@ -735,18 +735,136 @@ mod win32 {
         }
     }
 
+    // ── Windows version detection ─────────────────────────────────────────────
+
+    /// Detected Windows OS version (major, minor, build number).
+    pub struct WindowsVersionInfo {
+        pub major: u32,
+        pub minor: u32,
+        pub build: u32,
+    }
+
+    impl WindowsVersionInfo {
+        /// Returns true when the build number identifies Windows 11 (≥ 22000).
+        pub fn is_windows_11(&self) -> bool {
+            self.major >= 10 && self.build >= 22000
+        }
+
+        /// Returns true when the build number identifies Windows 10 (< 22000).
+        pub fn is_windows_10(&self) -> bool {
+            self.major == 10 && self.build < 22000
+        }
+
+        /// Returns true for any Windows version that supports virtual desktops
+        /// (Windows 10 and later).
+        pub fn is_supported(&self) -> bool {
+            self.major >= 10
+        }
+
+        /// Human-readable label for logging.
+        pub fn label(&self) -> &'static str {
+            if self.is_windows_11() {
+                "Windows 11"
+            } else if self.is_windows_10() {
+                "Windows 10"
+            } else {
+                "Unknown/Unsupported"
+            }
+        }
+    }
+
+    /// Returns Windows version information obtained via `RtlGetVersion` from
+    /// `ntdll.dll`.  This API is reliable and works even when
+    /// `GetVersionExW` returns faked values due to compatibility shims.
+    pub fn get_windows_version_info() -> WindowsVersionInfo {
+        // Mirror of the OSVERSIONINFOEXW structure from the Windows SDK.
+        #[repr(C)]
+        struct OsVersionInfoExW {
+            dw_os_version_info_size: u32,
+            dw_major_version: u32,
+            dw_minor_version: u32,
+            dw_build_number: u32,
+            dw_platform_id: u32,
+            sz_csd_version: [u16; 128],
+            dw_service_pack_major: u16,
+            dw_service_pack_minor: u16,
+            suite_mask: u16,
+            product_type: u8,
+            reserved: u8,
+        }
+
+        // RtlGetVersion is the authoritative version query from the NT kernel.
+        // Unlike GetVersionExW it is not subject to application compatibility
+        // shims that lie about the OS version to legacy apps.
+        extern "system" {
+            fn RtlGetVersion(version_information: *mut OsVersionInfoExW) -> i32;
+        }
+
+        let mut info = OsVersionInfoExW {
+            dw_os_version_info_size: std::mem::size_of::<OsVersionInfoExW>() as u32,
+            dw_major_version: 0,
+            dw_minor_version: 0,
+            dw_build_number: 0,
+            dw_platform_id: 0,
+            sz_csd_version: [0; 128],
+            dw_service_pack_major: 0,
+            dw_service_pack_minor: 0,
+            suite_mask: 0,
+            product_type: 0,
+            reserved: 0,
+        };
+
+        // RtlGetVersion returns an NTSTATUS; 0 (STATUS_SUCCESS) means success.
+        // Failure is practically impossible here but we handle it gracefully by
+        // returning a zeroed struct so callers treat the version as unsupported.
+        let status = unsafe { RtlGetVersion(&mut info) };
+        if status != 0 {
+            return WindowsVersionInfo {
+                major: 0,
+                minor: 0,
+                build: 0,
+            };
+        }
+
+        WindowsVersionInfo {
+            major: info.dw_major_version,
+            minor: info.dw_minor_version,
+            build: info.dw_build_number,
+        }
+    }
+
     // ── Windows 10/11 virtual desktop via winvd (IVirtualDesktopManagerInternal) ──
 
     /// Creates a new Windows 10/11 virtual desktop (Task View desktop) and
     /// switches the display to it. Returns the 0-based desktop index on success,
     /// or -1 on failure.
     pub fn create_virtual_desktop() -> i64 {
+        let ver = get_windows_version_info();
+        eprintln!(
+            "[create_virtual_desktop] Windows version: {}.{}.{} ({})",
+            ver.major,
+            ver.minor,
+            ver.build,
+            ver.label()
+        );
+
+        if !ver.is_supported() {
+            eprintln!(
+                "[create_virtual_desktop] WARNING: Windows {}.{}.{} does not support virtual desktops; skipping",
+                ver.major, ver.minor, ver.build
+            );
+            return -1;
+        }
+
         let count = winvd::get_desktop_count().unwrap_or(0);
         if winvd::create_desktop().is_ok() {
             // Switch the user to the new desktop
             let _ = winvd::switch_desktop(count);
+            eprintln!("[create_virtual_desktop] created virtual desktop at index {count}");
             count as i64
         } else {
+            eprintln!("[create_virtual_desktop] WARNING: create_desktop() failed on {} ({}.{}.{}); virtual desktop skipped",
+                ver.label(), ver.major, ver.minor, ver.build);
             -1
         }
     }
