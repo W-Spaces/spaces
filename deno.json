@@ -4,7 +4,12 @@
     "build": "vite build",
     "typecheck": "echo 'Type checking handled by vite build'",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
-  "nodeModulesDir": "auto"
+  "nodeModulesDir": "auto",
+  "imports": {
+    "vitest": "npm:vitest@4.1.2"
+  }
 }

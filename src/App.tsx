@@ -5,6 +5,7 @@ import { SpacesSidebar } from "@/components/SpacesSidebar";
 import { SpaceDetail } from "@/components/SpaceDetail";
 import { SpaceForm } from "@/components/forms/SpaceForm";
 import { ItemForm } from "@/components/forms/ItemForm";
+import { WindowPlacementDialog } from "@/components/WindowPlacementDialog";
 import { Layers } from "lucide-react";
 import type { Space, SpaceItem, WindowPlacement } from "@/types";
 
@@ -20,6 +21,10 @@ export default function App() {
   // Item form state
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SpaceItem | null>(null);
+
+  // Window placement dialog state
+  const [placementDialogOpen, setPlacementDialogOpen] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
   const loadSpaces = useCallback(async () => {
     try {
@@ -119,6 +124,10 @@ export default function App() {
     setItemFormOpen(true);
   }
 
+  function openPlacementDialog() {
+    setPlacementDialogOpen(true);
+  }
+
   async function handleSaveItem(data: Omit<SpaceItem, "id">) {
     if (!selectedSpace) return;
     try {
@@ -198,18 +207,30 @@ export default function App() {
 
         <main className="flex-1 overflow-hidden">
           {selectedSpace ? (
-            <SpaceDetail
-              space={selectedSpace}
-              isLaunching={isLaunching}
-              onLaunch={handleLaunch}
-              onEdit={openEditSpace}
-              onDelete={handleDeleteSpace}
-              onAddItem={openAddItem}
-              onEditItem={openEditItem}
-              onDeleteItem={handleDeleteItem}
-              onReorder={handleReorder}
-              onPlacementChange={handlePlacementChange}
-            />
+            <>
+              <SpaceDetail
+                space={selectedSpace}
+                isLaunching={isLaunching}
+                onLaunch={handleLaunch}
+                onEdit={openEditSpace}
+                onDelete={handleDeleteSpace}
+                onAddItem={openAddItem}
+                onEditItem={openEditItem}
+                onDeleteItem={handleDeleteItem}
+                onReorder={handleReorder}
+                onPlacementChange={handlePlacementChange}
+                onPlaceWindows={openPlacementDialog}
+              />
+
+              <WindowPlacementDialog
+                open={placementDialogOpen}
+                items={selectedSpace?.items ?? []}
+                activeItemId={selectedItemId}
+                onClose={() => setPlacementDialogOpen(false)}
+                onSelectItem={setSelectedItemId}
+                onPlacementChange={handlePlacementChange}
+              />
+            </>
           ) : (
             <EmptyState onNew={openNewSpace} />
           )}

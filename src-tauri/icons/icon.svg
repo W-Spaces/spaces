@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+
+    <linearGradient id="paneLeftGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+
+    <linearGradient id="paneTRGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6" />
+      <stop offset="100%" stop-color="#D946EF" />
+    </linearGradient>
+
+    <linearGradient id="paneBRGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#F43F5E" />
+    </linearGradient>
+
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <rect x="48" y="88" width="416" height="352" rx="24" fill="#000000" opacity="0.3" filter="url(#glow)"/>
+
+  <rect x="48" y="80" width="416" height="352" rx="24" fill="url(#bgGrad)" stroke="#334155" stroke-width="8"/>
+
+  <path d="M 48 104 C 48 90.745 58.745 80 72 80 L 440 80 C 453.255 80 464 90.745 464 104 L 464 128 L 48 128 Z" fill="#334155"/>
+
+  <circle cx="84" cy="104" r="8" fill="#EF4444"/>
+  <circle cx="112" cy="104" r="8" fill="#F59E0B"/>
+  <circle cx="140" cy="104" r="8" fill="#10B981"/>
+
+  <rect x="64" y="144" width="184" height="264" rx="12" fill="url(#paneLeftGrad)"/>
+  
+  <rect x="88" y="176" width="90" height="12" rx="6" fill="#FFFFFF" opacity="0.9"/>
+  <rect x="88" y="204" width="130" height="12" rx="6" fill="#FFFFFF" opacity="0.5"/>
+  <rect x="88" y="232" width="70" height="12" rx="6" fill="#FFFFFF" opacity="0.5"/>
+  <rect x="88" y="260" width="110" height="12" rx="6" fill="#FFFFFF" opacity="0.5"/>
+
+  <rect x="264" y="144" width="184" height="124" rx="12" fill="url(#paneTRGrad)"/>
+  
+  <rect x="284" y="164" width="144" height="24" rx="6" fill="#FFFFFF" opacity="0.3"/>
+  <circle cx="300" cy="216" r="16" fill="#FFFFFF" opacity="0.5"/>
+  <rect x="328" y="210" width="80" height="12" rx="6" fill="#FFFFFF" opacity="0.5"/>
+
+  <rect x="264" y="284" width="184" height="124" rx="12" fill="url(#paneBRGrad)"/>
+  
+  <rect x="284" y="324" width="40" height="40" rx="8" fill="#FFFFFF" opacity="0.5"/>
+  <rect x="336" y="324" width="40" height="40" rx="8" fill="#FFFFFF" opacity="0.5"/>
+  <rect x="388" y="324" width="40" height="40" rx="8" fill="#FFFFFF" opacity="0.5"/>
+
+  <circle cx="256" cy="276" r="44" fill="#0F172A" stroke="#38BDF8" stroke-width="6" filter="url(#glow)"/>
+  
+  <path d="M 262 238 L 234 282 L 254 282 L 246 314 L 284 266 L 260 266 Z" fill="#38BDF8"/>
+</svg>
