@@ -1,10 +1,47 @@
 use chrono::Utc;
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Logging setup
+// ──────────────────────────────────────────────────────────────────────────────
+
+fn setup_logging(app_data_dir: &PathBuf) -> Result<(), String> {
+    let log_file = app_data_dir.join("spaces.log");
+
+    // Create appending file logger
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_file)
+        .map_err(|e| e.to_string())?;
+
+    env_logger::Builder::from_default_env()
+        .target(env_logger::Target::Pipe(Box::new(file)))
+        .filter_level(log::LevelFilter::Info)
+        .format(|buf, record| {
+            use std::io::Write;
+            writeln!(
+                buf,
+                "{} [{}] {}: {}",
+                chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"),
+                record.level(),
+                record.target(),
+                record.args()
+            )
+        })
+        .init();
+
+    info!("Spaces application started");
+    info!("Log file: {:?}", log_file);
+
+    Ok(())
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Data models (must mirror src/types.ts)
@@ -122,7 +159,10 @@ impl SpacesState {
 
 #[tauri::command]
 fn get_spaces(state: State<SpacesState>) -> Vec<Space> {
-    state.spaces.lock().unwrap().clone()
+    info!("Getting all spaces");
+    let spaces = state.spaces.lock().unwrap().clone();
+    info!("Returning {} spaces", spaces.len());
+    spaces
 }
 
 #[tauri::command]
@@ -132,13 +172,13 @@ fn save_space(state: State<SpacesState>, space: Space) -> Result<Space, String> 
 
     let idx = spaces.iter().position(|s| s.id == space.id);
     let saved = if let Some(i) = idx {
-        // Update existing
+        info!("Updating space '{}' (id={})", space.name, space.id);
         let mut updated = space;
         updated.updated_at = now;
         spaces[i] = updated.clone();
         updated
     } else {
-        // Create new
+        info!("Creating new space '{}'", space.name);
         let mut new_space = space;
         new_space.id = Uuid::new_v4().to_string();
         new_space.created_at = now.clone();
@@ -148,35 +188,40 @@ fn save_space(state: State<SpacesState>, space: Space) -> Result<Space, String> 
     };
 
     state.persist(&spaces)?;
+    info!("Space '{}' saved successfully", saved.name);
     Ok(saved)
 }
 
 #[tauri::command]
 fn delete_space(state: State<SpacesState>, id: String) -> Result<(), String> {
+    info!("Deleting space with id={}", id);
     let mut spaces = state.spaces.lock().unwrap();
     let before = spaces.len();
     spaces.retain(|s| s.id != id);
     if spaces.len() == before {
+        warn!("Space '{}' not found for deletion", id);
         return Err(format!("Space '{}' not found", id));
     }
-    state.persist(&spaces)
+    state.persist(&spaces)?;
+    info!("Space '{}' deleted successfully", id);
+    Ok(())
 }
 
 #[tauri::command]
 fn launch_space(state: State<SpacesState>, id: String) -> Result<(), String> {
+    info!("Launching space with id={}", id);
     let spaces = state.spaces.lock().unwrap();
     let space = spaces
         .iter()
         .find(|s| s.id == id)
-        .ok_or_else(|| format!("Space '{}' not found", id))?
+        .ok_or_else(|| {
+            error!("Space '{}' not found", id);
+            format!("Space '{}' not found", id)
+        })?
         .clone();
     drop(spaces); // release lock before spawning processes
 
-    eprintln!(
-        "[launch_space] launching space '{}' with {} items",
-        space.name,
-        space.items.len()
-    );
+    info!("Launching space '{}' with {} items", space.name, space.items.len());
     for item in &space.items {
         let (item_name, placement) = match item {
             SpaceItem::Application {
@@ -191,12 +236,12 @@ fn launch_space(state: State<SpacesState>, id: String) -> Result<(), String> {
             } => (name.as_str(), placement.as_ref()),
         };
         if let Some(p) = placement {
-            eprintln!(
-                "  item '{}': placement monitorIndex={} monitorX={} monitorY={} monitorW={} monitorH={} x={:.3} y={:.3} w={:.3} h={:.3}",
-                item_name, p.monitor_index, p.monitor_x, p.monitor_y, p.monitor_width, p.monitor_height, p.x, p.y, p.w, p.h
+            info!(
+                "  item '{}': placement monitor={} pos=({:.3},{:.3}) size=({:.3}x{:.3})",
+                item_name, p.monitor_index, p.x, p.y, p.w, p.h
             );
         } else {
-            eprintln!("  item '{}': no placement", item_name);
+            info!("  item '{}': no placement", item_name);
         }
     }
 
@@ -209,6 +254,8 @@ fn launch_space(state: State<SpacesState>, id: String) -> Result<(), String> {
         #[cfg(not(target_os = "windows"))]
         launch_item(item)?;
     }
+
+    info!("Space '{}' launched successfully", space.name);
     Ok(())
 }
 
@@ -536,12 +583,19 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            let data_file = app
+            let data_dir = app
                 .path()
                 .app_data_dir()
-                .expect("failed to resolve app data dir")
-                .join("spaces.json");
+                .expect("failed to resolve app data dir");
+
+            // Initialize logging
+            if let Err(e) = setup_logging(&data_dir) {
+                eprintln!("Warning: Failed to initialize logging: {}", e);
+            }
+
+            let data_file = data_dir.join("spaces.json");
             app.manage(SpacesState::load(data_file));
+            info!("Spaces state loaded");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -573,6 +627,7 @@ pub struct MonitorInfo {
 
 #[tauri::command]
 fn get_monitors(window: tauri::WebviewWindow) -> Vec<MonitorInfo> {
+    info!("Getting monitor information");
     let list = window
         .available_monitors()
         .unwrap_or_else(|_| vec![])
@@ -591,9 +646,9 @@ fn get_monitors(window: tauri::WebviewWindow) -> Vec<MonitorInfo> {
             scale_factor: m.scale_factor(),
         })
         .collect::<Vec<_>>();
-    eprintln!("[get_monitors] reporting {} monitors:", list.len());
+    info!("Found {} monitors", list.len());
     for m in &list {
-        eprintln!(
+        info!(
             "  [{}] {} | pos=({},{}) | size={}x{} | scale={}",
             m.index, m.name, m.x, m.y, m.width, m.height, m.scale_factor
         );
