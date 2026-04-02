@@ -82,6 +82,17 @@ export interface Space {
   items: SpaceItem[];
   createdAt: string;
   updatedAt: string;
+  isFavourite?: boolean;
+}
+
+export interface SpaceGroup {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  spaceIds: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const ITEM_TYPE_LABELS: Record<SpaceItemType, string> = {
