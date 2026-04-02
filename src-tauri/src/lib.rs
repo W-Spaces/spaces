@@ -205,13 +205,14 @@ fn launch_space(state: State<SpacesState>, id: String) -> Result<(), String> {
 
     for item in &space.items {
         #[cfg(target_os = "windows")]
-        launch_item_with_desktop(&item, desktop_id)?;
+        launch_item_with_desktop(item, desktop_id)?;
         #[cfg(not(target_os = "windows"))]
-        launch_item(&item)?;
+        launch_item(item)?;
     }
     Ok(())
 }
 
+#[allow(dead_code)]
 fn launch_item(item: &SpaceItem) -> Result<(), String> {
     use std::process::Command;
 
@@ -619,10 +620,10 @@ mod win32 {
         },
     };
 
-    // ── Monitor enumeration ───────────────────────────────────────────────────
-
+    #[allow(dead_code)]
     struct MonitorCollector(Vec<RECT>);
 
+    #[allow(dead_code)]
     unsafe extern "system" fn enum_monitor_proc(
         hmonitor: HMONITOR,
         _: HDC,
@@ -638,6 +639,7 @@ mod win32 {
         BOOL(1)
     }
 
+    #[allow(dead_code)]
     fn get_monitor_rects() -> Vec<RECT> {
         let mut collector = MonitorCollector(Vec::new());
         unsafe {
@@ -776,6 +778,7 @@ mod win32 {
 
     /// Spawns a background thread that waits for the window to be placeable,
     /// then moves/resizes it using `SetWindowPos`.
+    #[allow(clippy::too_many_arguments)]
     pub fn place_window_async(
         pid: u32,
         monitor_x: i32,
