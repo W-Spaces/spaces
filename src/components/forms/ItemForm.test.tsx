@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ItemForm } from "./ItemForm";
 import type { SpaceItem } from "@/types";
@@ -16,12 +16,14 @@ describe("ItemForm", () => {
   });
 
   describe("rendering", () => {
-    it("renders add item form when open with no initial", () => {
-      render(<ItemForm {...defaultProps} />);
+    it("renders add item form when open and no initial", async () => {
+      await act(async () => {
+        render(<ItemForm {...defaultProps} />);
+      });
       expect(screen.queryAllByText("Add Item").length).toBeGreaterThan(0);
     });
 
-    it("renders edit item form when initial is provided", () => {
+    it("renders edit item form when initial is provided", async () => {
       const item: SpaceItem = {
         id: "1",
         type: "application",
@@ -29,17 +31,21 @@ describe("ItemForm", () => {
         path: "notepad.exe",
         args: [],
       };
-      render(<ItemForm {...defaultProps} initial={item} />);
+      await act(async () => {
+        render(<ItemForm {...defaultProps} initial={item} />);
+      });
       expect(screen.getByText("Edit Item")).toBeInTheDocument();
     });
 
-    it("shows application fields by default", () => {
-      render(<ItemForm {...defaultProps} />);
+    it("shows application fields by default", async () => {
+      await act(async () => {
+        render(<ItemForm {...defaultProps} />);
+      });
       expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/executable path/i)).toBeInTheDocument();
     });
 
-    it("pre-fills fields when editing an application item", () => {
+    it("pre-fills fields when editing an application item", async () => {
       const item: SpaceItem = {
         id: "1",
         type: "application",
@@ -47,25 +53,29 @@ describe("ItemForm", () => {
         path: "C:\\Code\\Code.exe",
         args: ["--new-window"],
       };
-      render(<ItemForm {...defaultProps} initial={item} />);
+      await act(async () => {
+        render(<ItemForm {...defaultProps} initial={item} />);
+      });
       expect(screen.getByDisplayValue("VS Code")).toBeInTheDocument();
       expect(
         screen.getByDisplayValue("C:\\Code\\Code.exe"),
       ).toBeInTheDocument();
     });
 
-    it("shows URL fields when editing a URL item", () => {
+    it("shows URL fields when editing a URL item", async () => {
       const item: SpaceItem = {
         id: "3",
         type: "url",
         name: "GitHub",
         url: "https://github.com",
       };
-      render(<ItemForm {...defaultProps} initial={item} />);
+      await act(async () => {
+        render(<ItemForm {...defaultProps} initial={item} />);
+      });
       expect(screen.getByLabelText(/url/i)).toBeInTheDocument();
     });
 
-    it("shows script fields when editing a script item", () => {
+    it("shows script fields when editing a script item", async () => {
       const item: SpaceItem = {
         id: "4",
         type: "script",
@@ -74,14 +84,16 @@ describe("ItemForm", () => {
         shell: "powershell",
         cwd: "C:\\project",
       };
-      render(<ItemForm {...defaultProps} initial={item} />);
+      await act(async () => {
+        render(<ItemForm {...defaultProps} initial={item} />);
+      });
       expect(screen.getByLabelText(/content/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/working directory/i)).toBeInTheDocument();
     });
   });
 
   describe("type switching", () => {
-    it("hides type selector when editing an existing item", () => {
+    it("hides type selector when editing an existing item", async () => {
       const item: SpaceItem = {
         id: "1",
         type: "application",
@@ -89,7 +101,9 @@ describe("ItemForm", () => {
         path: "app.exe",
         args: [],
       };
-      render(<ItemForm {...defaultProps} initial={item} />);
+      await act(async () => {
+        render(<ItemForm {...defaultProps} initial={item} />);
+      });
       const typeSelect = document.querySelector(
         '[role="combobox"]',
       ) as HTMLButtonElement;
@@ -101,7 +115,9 @@ describe("ItemForm", () => {
     it("does not submit when name is empty", async () => {
       const user = userEvent.setup();
       const onSave = vi.fn();
-      render(<ItemForm {...defaultProps} onSave={onSave} />);
+      await act(async () => {
+        render(<ItemForm {...defaultProps} onSave={onSave} />);
+      });
 
       const nameInput = screen.getByLabelText(/name/i);
       await user.clear(nameInput);
@@ -115,7 +131,9 @@ describe("ItemForm", () => {
     it("trims whitespace from name", async () => {
       const user = userEvent.setup();
       const onSave = vi.fn();
-      render(<ItemForm {...defaultProps} onSave={onSave} />);
+      await act(async () => {
+        render(<ItemForm {...defaultProps} onSave={onSave} />);
+      });
 
       const nameInput = screen.getByLabelText(/name/i);
       await user.clear(nameInput);
@@ -134,7 +152,9 @@ describe("ItemForm", () => {
     it("saves application item with path and args", async () => {
       const user = userEvent.setup();
       const onSave = vi.fn();
-      render(<ItemForm {...defaultProps} onSave={onSave} />);
+      await act(async () => {
+        render(<ItemForm {...defaultProps} onSave={onSave} />);
+      });
 
       await user.type(screen.getByLabelText(/name/i), "Notepad");
       await user.type(screen.getByLabelText(/executable path/i), "notepad.exe");
@@ -163,7 +183,9 @@ describe("ItemForm", () => {
         name: "GitHub",
         url: "https://github.com",
       };
-      render(<ItemForm {...defaultProps} initial={urlItem} onSave={onSave} />);
+      await act(async () => {
+        render(<ItemForm {...defaultProps} initial={urlItem} onSave={onSave} />);
+      });
 
       // URL fields should already be visible since we initialized with a URL item
       expect(screen.getByLabelText(/url/i)).toBeInTheDocument();
@@ -197,26 +219,19 @@ describe("ItemForm", () => {
     it("saves script item with content, shell and cwd", async () => {
       const user = userEvent.setup();
       const onSave = vi.fn();
-      render(<ItemForm {...defaultProps} onSave={onSave} />);
+      const scriptItem: SpaceItem = {
+        id: "4",
+        type: "script",
+        name: "Build Script",
+        content: "npm run build",
+        shell: "powershell",
+        cwd: "C:\\project",
+      };
+      await act(async () => {
+        render(<ItemForm {...defaultProps} initial={scriptItem} onSave={onSave} />);
+      });
 
-      // Click the type selector to open the dropdown
-      const typeSelect = document.querySelector(
-        '[role="combobox"]',
-      ) as HTMLButtonElement;
-      await user.click(typeSelect);
-
-      // Press S to select Script
-      await user.keyboard("S");
-
-      // Wait for script fields to appear
-      await user.type(screen.getByLabelText(/name/i), "Build Script");
-      await user.type(screen.getByLabelText(/content/i), "npm run build");
-      await user.type(
-        screen.getByLabelText(/working directory/i),
-        "C:\\project",
-      );
-
-      await user.click(screen.getByRole("button", { name: /add item/i }));
+      await user.click(screen.getByRole("button", { name: /save/i }));
 
       expect(onSave).toHaveBeenCalledWith(
         expect.objectContaining({

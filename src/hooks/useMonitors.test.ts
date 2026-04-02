@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { useMonitors } from "./useMonitors";
 import { invoke } from "@tauri-apps/api/core";
 import type { MonitorInfo } from "@/types";
@@ -13,7 +13,7 @@ describe("useMonitors", () => {
     vi.clearAllMocks();
   });
 
-  it("returns Tauri monitors when invoke resolves", () => {
+  it("returns Tauri monitors when invoke resolves", async () => {
     const tauriMonitors: MonitorInfo[] = [
       {
         index: 0,
@@ -36,35 +36,47 @@ describe("useMonitors", () => {
     ];
     mockInvoke.mockResolvedValueOnce(tauriMonitors);
 
-    const { result } = renderHook(() => useMonitors());
+    let hookResult: { current: ReturnType<typeof useMonitors> };
+    await act(async () => {
+      const { result } = renderHook(() => useMonitors());
+      hookResult = result;
+    });
 
-    expect(result.current).toHaveLength(2);
-    expect(result.current[0].name).toBe("Display 1");
-    expect(result.current[1].name).toBe("Display 2");
+    expect(hookResult!.current).toHaveLength(2);
+    expect(hookResult!.current[0].name).toBe("Display 1");
+    expect(hookResult!.current[1].name).toBe("Display 2");
   });
 
-  it("returns fallback monitors when invoke rejects", () => {
+  it("returns fallback monitors when invoke rejects", async () => {
     mockInvoke.mockResolvedValueOnce(
       Promise.reject(new Error("Tauri unavailable")),
     );
 
-    const { result } = renderHook(() => useMonitors());
+    let hookResult: { current: ReturnType<typeof useMonitors> };
+    await act(async () => {
+      const { result } = renderHook(() => useMonitors());
+      hookResult = result;
+    });
 
-    expect(result.current).toHaveLength(2);
-    expect(result.current[0].name).toBe("Display 1");
-    expect(result.current[1].name).toBe("Display 2");
+    expect(hookResult!.current).toHaveLength(2);
+    expect(hookResult!.current[0].name).toBe("Display 1");
+    expect(hookResult!.current[1].name).toBe("Display 2");
   });
 
-  it("uses correct fallback monitor positions", () => {
+  it("uses correct fallback monitor positions", async () => {
     mockInvoke.mockResolvedValueOnce(
       Promise.reject(new Error("Tauri unavailable")),
     );
 
-    const { result } = renderHook(() => useMonitors());
+    let hookResult: { current: ReturnType<typeof useMonitors> };
+    await act(async () => {
+      const { result } = renderHook(() => useMonitors());
+      hookResult = result;
+    });
 
-    expect(result.current[0].x).toBe(0);
-    expect(result.current[0].y).toBe(0);
-    expect(result.current[1].x).toBe(1920);
-    expect(result.current[1].y).toBe(0);
+    expect(hookResult!.current[0].x).toBe(0);
+    expect(hookResult!.current[0].y).toBe(0);
+    expect(hookResult!.current[1].x).toBe(1920);
+    expect(hookResult!.current[1].y).toBe(0);
   });
 });

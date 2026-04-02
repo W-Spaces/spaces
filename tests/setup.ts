@@ -40,5 +40,15 @@ class IntersectionObserverMock {
   disconnect() {}
   callback: ((entries: unknown[]) => void) | null;
 }
+// Element.hasPointerCapture — used by Radix UI primitives (jsdom missing this)
+Element.prototype.hasPointerCapture = function (_pointerId: number): boolean {
+  return false;
+};
+
+// Element.scrollIntoView — used by Radix Select scroll (jsdom missing this)
+Element.prototype.scrollIntoView = function (_options?: ScrollIntoViewOptions): void {
+  // no-op polyfill
+};
+
 window.IntersectionObserver =
   IntersectionObserverMock as unknown as typeof IntersectionObserver;
