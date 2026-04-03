@@ -36,6 +36,7 @@ const defaultProps = {
   onSelectGroup: vi.fn(),
   onNew: vi.fn(),
   onNewGroup: vi.fn(),
+  onOpenSettings: vi.fn(),
 };
 
 describe("SpacesSidebar", () => {

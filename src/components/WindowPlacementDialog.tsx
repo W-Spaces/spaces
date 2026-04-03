@@ -539,337 +539,354 @@ export function WindowPlacementDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col"
-      style={{ background: "hsl(224 40% 5%)" }}
+      className="fixed inset-0 z-50 flex flex-col items-center"
+      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
     >
-      {/* ── Header ─────────────────────────────────────────────────────── */}
       <div
-        className="flex shrink-0 items-center justify-between px-6"
+        className="flex flex-col overflow-hidden"
         style={{
-          height: 56,
-          borderBottom: "1px solid rgba(255,255,255,.07)",
-          background: "rgba(255,255,255,.02)",
+          width: "90vw",
+          height: "85vh",
+          background: "hsl(224 40% 5%)",
+          borderRadius: 14,
+          border: "1px solid rgba(255,255,255,.1)",
+          boxShadow: "0 24px 80px rgba(0,0,0,.8)",
         }}
       >
-        <div className="flex items-center gap-3">
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-lg"
-            style={{
-              background: "rgba(59,130,246,.2)",
-              border: "1px solid rgba(59,130,246,.3)",
-            }}
+        {/* ── Header (fixed) ─────────────────────────────────────────────── */}
+        <div
+          className="flex shrink-0 items-center justify-between px-6"
+          style={{
+            height: 56,
+            borderBottom: "1px solid rgba(255,255,255,.07)",
+            background: "rgba(255,255,255,.02)",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-lg"
+              style={{
+                background: "rgba(59,130,246,.2)",
+                border: "1px solid rgba(59,130,246,.3)",
+              }}
+            >
+              <MonitorIcon className="h-4 w-4 text-blue-400" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-white/90">
+                Place Windows
+              </h2>
+              <p className="text-[11px] text-white/35">
+                Drag onto monitors · edges to snap · corners to resize
+              </p>
+            </div>
+          </div>
+
+          {snapZone && (
+            <div
+              className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-blue-300"
+              style={{
+                background: "rgba(59,130,246,.18)",
+                border: "1px solid rgba(59,130,246,.4)",
+              }}
+            >
+              ⬡ {SNAP_LABELS[snapZone.zone.id]}
+            </div>
+          )}
+
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-white/10 hover:text-white/70"
           >
-            <MonitorIcon className="h-4 w-4 text-blue-400" />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-white/90">
-              Place Windows
-            </h2>
-            <p className="text-[11px] text-white/35">
-              Drag onto monitors · edges to snap · corners to resize
-            </p>
-          </div>
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        {snapZone && (
-          <div
-            className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-blue-300"
-            style={{
-              background: "rgba(59,130,246,.18)",
-              border: "1px solid rgba(59,130,246,.4)",
-            }}
-          >
-            ⬡ {SNAP_LABELS[snapZone.zone.id]}
-          </div>
-        )}
-
-        <button
-          onClick={onClose}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-white/10 hover:text-white/70"
+        {/* ── Canvas ─────────────────────────────────────────────────────── */}
+        <div
+          ref={canvasRef}
+          className="relative overflow-y-auto"
+          style={{
+            flex: 1,
+            cursor: busy ? "crosshair" : "default",
+          }}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
         >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+          {monitors.length === 0 ? (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-white/20">No monitors detected</p>
+            </div>
+          ) : (
+            <>
+              {/* Monitor backgrounds */}
+              {monitorRects.map((mr) => {
+                const sz =
+                  snapZone?.monitorIndex === mr.monitor.index
+                    ? snapZone.zone
+                    : null;
+                const titleH = Math.max(10, mr.height * 0.055);
+                const dotR = Math.max(3, mr.height * 0.022);
 
-      {/* ── Canvas ─────────────────────────────────────────────────────── */}
-      <div
-        ref={canvasRef}
-        className="relative flex-1 overflow-hidden"
-        style={{ cursor: busy ? "crosshair" : "default" }}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      >
-        {monitors.length === 0 ? (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-white/20">No monitors detected</p>
-          </div>
-        ) : (
-          <>
-            {/* Monitor backgrounds */}
-            {monitorRects.map((mr) => {
-              const sz =
-                snapZone?.monitorIndex === mr.monitor.index
-                  ? snapZone.zone
-                  : null;
-              const titleH = Math.max(10, mr.height * 0.055);
-              const dotR = Math.max(3, mr.height * 0.022);
-
-              return (
-                <div
-                  key={mr.monitor.index}
-                  className="absolute overflow-hidden"
-                  style={{
-                    left: mr.left,
-                    top: mr.top,
-                    width: mr.width,
-                    height: mr.height,
-                    borderRadius: 10,
-                    background:
-                      "linear-gradient(155deg, hsl(224 40% 12%) 0%, hsl(224 40% 9%) 100%)",
-                    border: "1.5px solid rgba(255,255,255,.1)",
-                    boxShadow:
-                      "0 8px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05)",
-                  }}
-                >
-                  {/* Dot-grid texture */}
+                return (
                   <div
-                    className="pointer-events-none absolute inset-0"
+                    key={mr.monitor.index}
+                    className="absolute overflow-hidden"
                     style={{
-                      backgroundImage:
-                        "radial-gradient(circle, rgba(255,255,255,.045) 1px, transparent 1px)",
-                      backgroundSize: "18px 18px",
-                    }}
-                  />
-
-                  {/* macOS-style title bar */}
-                  <div
-                    className="absolute left-0 right-0 top-0 flex items-center gap-1.5 px-2.5"
-                    style={{
-                      height: titleH,
-                      background: "rgba(255,255,255,.04)",
-                      borderBottom: "1px solid rgba(255,255,255,.05)",
+                      left: mr.left,
+                      top: mr.top,
+                      width: mr.width,
+                      height: mr.height,
+                      borderRadius: 10,
+                      background:
+                        "linear-gradient(155deg, hsl(224 40% 12%) 0%, hsl(224 40% 9%) 100%)",
+                      border: "1.5px solid rgba(255,255,255,.1)",
+                      boxShadow:
+                        "0 8px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05)",
                     }}
                   >
-                    {(["#EF4444", "#F59E0B", "#22C55E"] as const).map((c) => (
-                      <div
-                        key={c}
-                        style={{
-                          width: dotR * 2,
-                          height: dotR * 2,
-                          borderRadius: "50%",
-                          background: c,
-                          opacity: 0.65,
-                        }}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Bottom label */}
-                  <div
-                    className="absolute bottom-1.5 left-2 font-medium"
-                    style={{
-                      fontSize: Math.max(8, mr.height * 0.038),
-                      color: "rgba(255,255,255,.18)",
-                    }}
-                  >
-                    {mr.monitor.name} · {mr.monitor.width}×{mr.monitor.height}
-                  </div>
-
-                  {/* Monitor index */}
-                  <div
-                    className="absolute right-2 flex items-center justify-center rounded-full font-bold"
-                    style={{
-                      top: titleH + 4,
-                      width: Math.max(14, mr.height * 0.065),
-                      height: Math.max(14, mr.height * 0.065),
-                      fontSize: Math.max(8, mr.height * 0.036),
-                      background: "rgba(255,255,255,.07)",
-                      color: "rgba(255,255,255,.3)",
-                    }}
-                  >
-                    {mr.monitor.index + 1}
-                  </div>
-
-                  {/* Snap zone overlay */}
-                  {sz && (
+                    {/* Dot-grid texture */}
                     <div
-                      className="pointer-events-none absolute"
+                      className="pointer-events-none absolute inset-0"
                       style={{
-                        left: `${sz.x * 100}%`,
-                        top: `${sz.y * 100}%`,
-                        width: `${sz.w * 100}%`,
-                        height: `${sz.h * 100}%`,
-                        background: "rgba(59,130,246,.2)",
-                        border: "2px solid rgba(59,130,246,.7)",
-                        borderRadius: 7,
-                        transition: "all .1s ease",
+                        backgroundImage:
+                          "radial-gradient(circle, rgba(255,255,255,.045) 1px, transparent 1px)",
+                        backgroundSize: "18px 18px",
                       }}
                     />
-                  )}
-                </div>
-              );
-            })}
 
-            {/* Placed chips */}
-            {items.map((item) => {
-              const pl = localPlacements[item.id];
-              if (!pl) return null;
-              const mr = monitorRects.find(
-                (r) => r.monitor.index === pl.monitorIndex,
-              );
-              if (!mr) return null;
-
-              const isActive = item.id === activeItemId;
-              const isDragging = drag?.itemId === item.id;
-              const c = isActive
-                ? CHIP_ACTIVE[item.type]
-                : CHIP_INACTIVE[item.type];
-
-              const chipLeft = mr.left + pl.x * mr.width;
-              const chipTop = mr.top + pl.y * mr.height;
-              const chipW = Math.max(pl.w * mr.width, 56);
-              const chipH = Math.max(pl.h * mr.height, 32);
-
-              return (
-                <div
-                  key={item.id}
-                  className="absolute select-none"
-                  style={{
-                    left: chipLeft,
-                    top: chipTop,
-                    width: chipW,
-                    height: chipH,
-                    background: c.bg,
-                    border: `1.5px solid ${c.border}`,
-                    borderRadius: 7,
-                    boxShadow: isDragging
-                      ? `0 20px 56px rgba(0,0,0,.8), 0 0 0 2px ${c.border}`
-                      : isActive
-                        ? `0 4px 20px ${c.shadow}, 0 0 0 1px ${c.border}`
-                        : "0 2px 8px rgba(0,0,0,.3)",
-                    cursor: isDragging ? "grabbing" : "grab",
-                    zIndex: isDragging ? 30 : isActive ? 15 : 10,
-                    transition:
-                      isDragging || resize?.itemId === item.id
-                        ? "none"
-                        : "box-shadow .15s",
-                  }}
-                  onPointerDown={(e) => startDrag(e, item)}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectItem(isActive ? null : item.id);
-                  }}
-                >
-                  <div className="flex h-full items-center justify-center px-2">
-                    <span
-                      className="truncate font-medium"
+                    {/* macOS-style title bar */}
+                    <div
+                      className="absolute left-0 right-0 top-0 flex items-center gap-1.5 px-2.5"
                       style={{
-                        fontSize: Math.max(10, Math.min(13, chipH * 0.28)),
-                        color: c.text,
+                        height: titleH,
+                        background: "rgba(255,255,255,.04)",
+                        borderBottom: "1px solid rgba(255,255,255,.05)",
                       }}
                     >
-                      {item.name}
-                    </span>
-                  </div>
+                      {(["#EF4444", "#F59E0B", "#22C55E"] as const).map((c) => (
+                        <div
+                          key={c}
+                          style={{
+                            width: dotR * 2,
+                            height: dotR * 2,
+                            borderRadius: "50%",
+                            background: c,
+                            opacity: 0.65,
+                          }}
+                        />
+                      ))}
+                    </div>
 
-                  {/* Corner resize handles (active chip only) */}
-                  {isActive &&
-                    (["nw", "ne", "se", "sw"] as ResizeHandle[]).map((h) => (
+                    {/* Bottom label */}
+                    <div
+                      className="absolute bottom-1.5 left-2 font-medium"
+                      style={{
+                        fontSize: Math.max(8, mr.height * 0.038),
+                        color: "rgba(255,255,255,.18)",
+                      }}
+                    >
+                      {mr.monitor.name} · {mr.monitor.width}×{mr.monitor.height}
+                    </div>
+
+                    {/* Monitor index */}
+                    <div
+                      className="absolute right-2 flex items-center justify-center rounded-full font-bold"
+                      style={{
+                        top: titleH + 4,
+                        width: Math.max(14, mr.height * 0.065),
+                        height: Math.max(14, mr.height * 0.065),
+                        fontSize: Math.max(8, mr.height * 0.036),
+                        background: "rgba(255,255,255,.07)",
+                        color: "rgba(255,255,255,.3)",
+                      }}
+                    >
+                      {mr.monitor.index + 1}
+                    </div>
+
+                    {/* Snap zone overlay */}
+                    {sz && (
                       <div
-                        key={h}
-                        onPointerDown={(e) => {
-                          e.stopPropagation();
-                          startResize(e, item, h);
-                        }}
+                        className="pointer-events-none absolute"
                         style={{
-                          position: "absolute",
-                          width: 9,
-                          height: 9,
-                          background: "#fff",
-                          border: `2px solid ${c.border}`,
-                          borderRadius: 2,
-                          boxShadow: "0 1px 4px rgba(0,0,0,.5)",
-                          zIndex: 40,
-                          ...(h.includes("n") ? { top: -5 } : { bottom: -5 }),
-                          ...(h.includes("w") ? { left: -5 } : { right: -5 }),
-                          cursor:
-                            h === "nw" || h === "se"
-                              ? "nwse-resize"
-                              : "nesw-resize",
+                          left: `${sz.x * 100}%`,
+                          top: `${sz.y * 100}%`,
+                          width: `${sz.w * 100}%`,
+                          height: `${sz.h * 100}%`,
+                          background: "rgba(59,130,246,.2)",
+                          border: "2px solid rgba(59,130,246,.7)",
+                          borderRadius: 7,
+                          transition: "all .1s ease",
                         }}
                       />
-                    ))}
-                </div>
-              );
-            })}
+                    )}
+                  </div>
+                );
+              })}
 
-            {/* Unplaced tray */}
-            {unassigned.length > 0 && (
-              <div
-                className="absolute bottom-5 left-1/2"
-                style={{
-                  transform: "translateX(-50%)",
-                  background: "rgba(13,17,27,.92)",
-                  backdropFilter: "blur(20px)",
-                  border: "1px solid rgba(255,255,255,.1)",
-                  borderRadius: 14,
-                  padding: "10px 16px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  boxShadow: "0 8px 32px rgba(0,0,0,.6)",
-                }}
-              >
-                <span
+              {/* Placed chips */}
+              {items.map((item) => {
+                const pl = localPlacements[item.id];
+                if (!pl) return null;
+                const mr = monitorRects.find(
+                  (r) => r.monitor.index === pl.monitorIndex,
+                );
+                if (!mr) return null;
+
+                const isActive = item.id === activeItemId;
+                const isDragging = drag?.itemId === item.id;
+                const c = isActive
+                  ? CHIP_ACTIVE[item.type]
+                  : CHIP_INACTIVE[item.type];
+
+                const chipLeft = mr.left + pl.x * mr.width;
+                const chipTop = mr.top + pl.y * mr.height;
+                const chipW = Math.max(pl.w * mr.width, 56);
+                const chipH = Math.max(pl.h * mr.height, 32);
+
+                return (
+                  <div
+                    key={item.id}
+                    className="absolute select-none"
+                    style={{
+                      left: chipLeft,
+                      top: chipTop,
+                      width: chipW,
+                      height: chipH,
+                      background: c.bg,
+                      border: `1.5px solid ${c.border}`,
+                      borderRadius: 7,
+                      boxShadow: isDragging
+                        ? `0 20px 56px rgba(0,0,0,.8), 0 0 0 2px ${c.border}`
+                        : isActive
+                          ? `0 4px 20px ${c.shadow}, 0 0 0 1px ${c.border}`
+                          : "0 2px 8px rgba(0,0,0,.3)",
+                      cursor: isDragging ? "grabbing" : "grab",
+                      zIndex: isDragging ? 30 : isActive ? 15 : 10,
+                      transition:
+                        isDragging || resize?.itemId === item.id
+                          ? "none"
+                          : "box-shadow .15s",
+                    }}
+                    onPointerDown={(e) => startDrag(e, item)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectItem(isActive ? null : item.id);
+                    }}
+                  >
+                    <div className="flex h-full items-center justify-center px-2">
+                      <span
+                        className="truncate font-medium"
+                        style={{
+                          fontSize: Math.max(10, Math.min(13, chipH * 0.28)),
+                          color: c.text,
+                        }}
+                      >
+                        {item.name}
+                      </span>
+                    </div>
+
+                    {/* Corner resize handles (active chip only) */}
+                    {isActive &&
+                      (["nw", "ne", "se", "sw"] as ResizeHandle[]).map((h) => (
+                        <div
+                          key={h}
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            startResize(e, item, h);
+                          }}
+                          style={{
+                            position: "absolute",
+                            width: 9,
+                            height: 9,
+                            background: "#fff",
+                            border: `2px solid ${c.border}`,
+                            borderRadius: 2,
+                            boxShadow: "0 1px 4px rgba(0,0,0,.5)",
+                            zIndex: 40,
+                            ...(h.includes("n") ? { top: -5 } : { bottom: -5 }),
+                            ...(h.includes("w") ? { left: -5 } : { right: -5 }),
+                            cursor:
+                              h === "nw" || h === "se"
+                                ? "nwse-resize"
+                                : "nesw-resize",
+                          }}
+                        />
+                      ))}
+                  </div>
+                );
+              })}
+
+              {/* Unplaced tray */}
+              {unassigned.length > 0 && (
+                <div
+                  className="absolute bottom-5 left-1/2"
                   style={{
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: "rgba(255,255,255,.25)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    marginRight: 4,
-                    whiteSpace: "nowrap",
+                    transform: "translateX(-50%)",
+                    background: "rgba(13,17,27,.92)",
+                    backdropFilter: "blur(20px)",
+                    border: "1px solid rgba(255,255,255,.1)",
+                    borderRadius: 14,
+                    padding: "10px 16px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    boxShadow: "0 8px 32px rgba(0,0,0,.6)",
                   }}
                 >
-                  Unplaced
-                </span>
-                {unassigned.map((item) => {
-                  const isActive = item.id === activeItemId;
-                  const c = isActive
-                    ? CHIP_ACTIVE[item.type]
-                    : CHIP_INACTIVE[item.type];
-                  return (
-                    <div
-                      key={item.id}
-                      onPointerDown={(e) => startDrag(e, item)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectItem(isActive ? null : item.id);
-                      }}
-                      style={{
-                        background: c.bg,
-                        border: `1.5px solid ${c.border}`,
-                        borderRadius: 7,
-                        padding: "6px 14px",
-                        cursor: "grab",
-                        fontSize: 12,
-                        fontWeight: 500,
-                        color: c.text,
-                        whiteSpace: "nowrap",
-                        userSelect: "none",
-                        boxShadow: isActive ? `0 0 0 2px ${c.border}` : "none",
-                        transition: "box-shadow .15s",
-                      }}
-                    >
-                      {item.name}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: "rgba(255,255,255,.25)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      marginRight: 4,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Unplaced
+                  </span>
+                  {unassigned.map((item) => {
+                    const isActive = item.id === activeItemId;
+                    const c = isActive
+                      ? CHIP_ACTIVE[item.type]
+                      : CHIP_INACTIVE[item.type];
+                    return (
+                      <div
+                        key={item.id}
+                        onPointerDown={(e) => startDrag(e, item)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectItem(isActive ? null : item.id);
+                        }}
+                        style={{
+                          background: c.bg,
+                          border: `1.5px solid ${c.border}`,
+                          borderRadius: 7,
+                          padding: "6px 14px",
+                          cursor: "grab",
+                          fontSize: 12,
+                          fontWeight: 500,
+                          color: c.text,
+                          whiteSpace: "nowrap",
+                          userSelect: "none",
+                          boxShadow: isActive
+                            ? `0 0 0 2px ${c.border}`
+                            : "none",
+                          transition: "box-shadow .15s",
+                        }}
+                      >
+                        {item.name}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

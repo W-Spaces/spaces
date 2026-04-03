@@ -96,6 +96,14 @@ pub struct SpaceGroup {
     pub updated_at: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscoveredApp {
+    pub name: String,
+    pub path: String,
+    pub icon_base64: Option<String>,
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // App state – in-memory spaces and groups protected by a Mutex, plus the path to persist
 // ──────────────────────────────────────────────────────────────────────────────
@@ -194,6 +202,156 @@ fn delete_space(state: State<SpacesState>, id: String) -> Result<(), String> {
         return Err(format!("Space '{}' not found", id));
     }
     state.persist(&spaces)
+}
+
+#[tauri::command]
+fn discover_apps() -> Vec<DiscoveredApp> {
+    #[cfg(target_os = "windows")]
+    {
+        discover_windows_apps()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Vec::new()
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn discover_windows_apps() -> Vec<DiscoveredApp> {
+    use std::path::Path;
+
+    let mut apps = Vec::new();
+    let start_menu_paths = vec![
+        std::env::var("ProgramData")
+            .map(|p| Path::new(&p).join("Microsoft\\Windows\\Start Menu\\Programs"))
+            .ok(),
+        std::env::var("AppData")
+            .map(|p| Path::new(&p).join("Microsoft\\Windows\\Start Menu\\Programs"))
+            .ok(),
+    ];
+
+    for start_path in start_menu_paths.into_iter().flatten() {
+        if start_path.exists() {
+            discover_apps_in_dir(&start_path, &mut apps);
+        }
+    }
+
+    // Also check common installation directory
+    if let Ok(program_files) = std::env::var("ProgramFiles") {
+        let pf = Path::new(&program_files);
+        if pf.exists() {
+            discover_apps_in_dir(pf, &mut apps);
+        }
+    }
+    if let Ok(program_files_x86) = std::env::var("ProgramFiles(x86)") {
+        let pf86 = Path::new(&program_files_x86);
+        if pf86.exists() {
+            discover_apps_in_dir(pf86, &mut apps);
+        }
+    }
+
+    // Sort by name and remove duplicates
+    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    apps.dedup_by(|a, b| a.name.to_lowercase() == b.name.to_lowercase() && a.path == b.path);
+
+    eprintln!("[discover_apps] found {} applications", apps.len());
+    apps
+}
+
+#[cfg(target_os = "windows")]
+fn discover_apps_in_dir(dir: &std::path::Path, apps: &mut Vec<DiscoveredApp>) {
+    use std::fs;
+
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+
+            // Check if it's a shortcut (.lnk) file
+            if path.extension().is_some_and(|ext| ext == "lnk") {
+                if let Ok(target) = resolve_shortcut(&path) {
+                    if target.extension().is_some_and(|ext| ext == "exe") {
+                        let name = path
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("Unknown")
+                            .to_string();
+                        let icon = extract_icon_from_exe(&target);
+                        apps.push(DiscoveredApp {
+                            name,
+                            path: target.to_string_lossy().to_string(),
+                            icon_base64: icon,
+                        });
+                    }
+                }
+            }
+            // Recurse into subdirectories
+            else if path.is_dir() {
+                discover_apps_in_dir(&path, apps);
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_shortcut(lnk_path: &std::path::Path) -> Result<std::path::PathBuf, std::io::Error> {
+    use std::process::Command;
+    let output = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            &format!(
+                "(New-Object -ComObject WScript.Shell).CreateShortcut('{}').TargetPath",
+                lnk_path.to_string_lossy().replace("'", "''")
+            ),
+        ])
+        .output()?;
+
+    if output.status.success() {
+        let target = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !target.is_empty() {
+            return Ok(std::path::PathBuf::from(target));
+        }
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "Could not resolve shortcut",
+    ))
+}
+
+#[cfg(target_os = "windows")]
+fn extract_icon_from_exe(exe_path: &std::path::Path) -> Option<String> {
+    use std::process::Command;
+
+    let exe_str = exe_path.to_string_lossy().replace('\'', "''");
+    let ps_script = format!(
+        r#"Add-Type -AssemblyName System.Drawing
+try {{
+  $icon = [System.Drawing.Icon]::ExtractAssociatedIcon('{0}')
+  if ($icon -eq $null) {{ exit 1 }}
+  $bitmap = $icon.ToBitmap()
+  $ms = New-Object System.IO.MemoryStream
+  $bitmap.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
+  $bytes = $ms.ToArray()
+  $ms.Dispose()
+  $bitmap.Dispose()
+  $icon.Dispose()
+  [Convert]::ToBase64String($bytes)
+}} catch {{ exit 1 }}"#,
+        exe_str
+    );
+
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &ps_script])
+        .output()
+        .ok()?;
+
+    if output.status.success() {
+        let base64 = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if base64.len() > 100 && base64.len() < 200_000 {
+            return Some(base64);
+        }
+    }
+    None
 }
 
 #[tauri::command]
@@ -666,6 +824,7 @@ fn launch_item_with_desktop(item: &SpaceItem, desktop_id: i64) -> Result<(), Str
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let data_dir = app
                 .path()
@@ -680,6 +839,7 @@ pub fn run() {
             get_spaces,
             save_space,
             delete_space,
+            discover_apps,
             toggle_favourite,
             launch_space,
             get_groups,
@@ -687,9 +847,46 @@ pub fn run() {
             delete_group,
             launch_group,
             get_monitors,
+            get_config_dir,
+            set_config_dir,
+            pick_config_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Config path – lets the user pick where spaces.json / groups.json are stored
+// ──────────────────────────────────────────────────────────────────────────────
+
+static CONFIG_DIR: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/// Returns the currently configured config directory path.
+#[tauri::command]
+fn get_config_dir() -> Option<String> {
+    CONFIG_DIR.lock().unwrap().clone()
+}
+
+/// Sets the config directory path.
+#[tauri::command]
+fn set_config_dir(path: Option<String>) -> Result<Option<String>, String> {
+    let mut guard = CONFIG_DIR.lock().map_err(|e| e.to_string())?;
+    *guard = path.clone();
+    Ok(path)
+}
+
+/// Picks a folder using the native OS dialog and returns the chosen path.
+#[tauri::command]
+fn pick_config_dir(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let (tx, rx) = std::sync::mpsc::channel::<Option<String>>();
+
+    app.dialog().file().pick_folder(move |folder| {
+        let _ = tx.send(folder.map(|f| f.to_string()));
+    });
+
+    rx.recv().map_err(|e| e.to_string())
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
