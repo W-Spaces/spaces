@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { SPACE_ICON_MAP } from "@/lib/icons";
 import type { Space, SpaceGroup } from "@/types";
 
 interface SpacesSidebarProps {
@@ -126,10 +127,16 @@ export function SpacesSidebar({
             >
               <span
                 className={cn(
-                  "h-2.5 w-2.5 shrink-0 rounded-full",
-                  COLOR_MAP[space.color] ?? "bg-muted-foreground",
+                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
+                  COLOR_MAP[space.color] ?? "bg-muted",
                 )}
-              />
+              >
+                {(() => {
+                  const SpaceIcon =
+                    SPACE_ICON_MAP[space.icon ?? "Rocket"] ?? Rocket;
+                  return <SpaceIcon className="h-4 w-4 shrink-0 text-white" />;
+                })()}
+              </span>
               <span className="truncate font-medium">{space.name}</span>
               {space.isFavourite && (
                 <Star className="ml-auto h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" />

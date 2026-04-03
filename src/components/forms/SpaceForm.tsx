@@ -12,37 +12,41 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { SPACE_ICON_MAP } from "@/lib/icons";
 import type { Space } from "@/types";
-import { SPACE_COLORS } from "@/types";
+import { SPACE_COLORS, SPACE_ICONS } from "@/types";
 
 interface SpaceFormProps {
   open: boolean;
   initial?: Space | null;
   onClose: () => void;
-  onSave: (data: Pick<Space, "name" | "description" | "color">) => void;
+  onSave: (data: Pick<Space, "name" | "description" | "color" | "icon">) => void;
 }
 
 export function SpaceForm({ open, initial, onClose, onSave }: SpaceFormProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("blue");
+  const [icon, setIcon] = useState("Rocket");
 
   useEffect(() => {
     if (initial) {
       setName(initial.name);
       setDescription(initial.description);
       setColor(initial.color);
+      setIcon(initial.icon ?? "Rocket");
     } else {
       setName("");
       setDescription("");
       setColor("blue");
+      setIcon("Rocket");
     }
   }, [initial, open]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    onSave({ name: name.trim(), description: description.trim(), color });
+    onSave({ name: name.trim(), description: description.trim(), color, icon });
   }
 
   return (
@@ -99,6 +103,32 @@ export function SpaceForm({ open, initial, onClose, onSave }: SpaceFormProps) {
                   )}
                 />
               ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Icon</Label>
+            <div className="flex flex-wrap gap-2">
+              {SPACE_ICONS.map((iconName) => {
+                const IconComponent = SPACE_ICON_MAP[iconName];
+                return (
+                  <button
+                    key={iconName}
+                    type="button"
+                    onClick={() => setIcon(iconName)}
+                    aria-label={iconName}
+                    title={iconName}
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-md transition-all",
+                      icon === iconName
+                        ? "bg-primary text-primary-foreground ring-2 ring-ring ring-offset-1 ring-offset-background"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80",
+                    )}
+                  >
+                    <IconComponent className="h-4 w-4" />
+                  </button>
+                );
+              })}
             </div>
           </div>
 

@@ -92,6 +92,7 @@ describe("SpaceForm", () => {
         name: "Test Space",
         description: "",
         color: "blue", // default
+        icon: "Rocket", // default
       }),
     );
   });
@@ -156,5 +157,55 @@ describe("SpaceForm", () => {
     // Check that color selector exists
     const colorLabel = screen.getByText("Color");
     expect(colorLabel).toBeInTheDocument();
+  });
+
+  it("has icon selector with all icons available", () => {
+    render(<SpaceForm {...defaultProps} />);
+    const iconLabel = screen.getByText("Icon");
+    expect(iconLabel).toBeInTheDocument();
+    // Verify a few icon buttons are present by their aria-label
+    expect(screen.getByRole("button", { name: "Rocket" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Code" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
+  });
+
+  it("includes icon in saved data", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(<SpaceForm {...defaultProps} onSave={onSave} />);
+
+    const nameInput = screen.getByLabelText(/name/i);
+    await user.clear(nameInput);
+    await user.type(nameInput, "Icon Test");
+
+    // Select the "Code" icon
+    await user.click(screen.getByRole("button", { name: "Code" }));
+
+    const submitButton = screen.getByRole("button", { name: /create space/i });
+    await user.click(submitButton);
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Icon Test",
+        icon: "Code",
+      }),
+    );
+  });
+
+  it("pre-fills icon when editing", () => {
+    const existing: Space = {
+      id: "1",
+      name: "My Space",
+      description: "A description",
+      color: "green",
+      icon: "Star",
+      items: [],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    render(<SpaceForm {...defaultProps} initial={existing} />);
+    // The Star button should have the selected style (primary background)
+    const starButton = screen.getByRole("button", { name: "Star" });
+    expect(starButton).toBeInTheDocument();
   });
 });

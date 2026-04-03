@@ -77,6 +77,8 @@ pub struct Space {
     pub name: String,
     pub description: String,
     pub color: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     pub items: Vec<SpaceItem>,
     #[serde(default)]
     pub is_favourite: bool,

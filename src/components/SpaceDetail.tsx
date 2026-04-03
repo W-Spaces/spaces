@@ -38,6 +38,7 @@ import { useMonitors } from "@/hooks/useMonitors";
 import type { Space, SpaceItem, SpaceItemType, WindowPlacement } from "@/types";
 import { ITEM_TYPE_LABELS } from "@/types";
 import { cn } from "@/lib/utils";
+import { SPACE_ICON_MAP } from "@/lib/icons";
 
 const ITEM_ICONS: Record<SpaceItemType, React.ReactNode> = {
   application: <AppWindow className="h-4 w-4" />,
@@ -140,7 +141,10 @@ export function SpaceDetail({
               COLOR_MAP[space.color] ?? "bg-muted",
             )}
           >
-            <Rocket className="h-5 w-5 text-white" />
+            {(() => {
+              const SpaceIcon = SPACE_ICON_MAP[space.icon ?? "Rocket"] ?? Rocket;
+              return <SpaceIcon className="h-5 w-5 text-white" />;
+            })()}
           </span>
           <div>
             <h1 className="text-xl font-semibold">{space.name}</h1>

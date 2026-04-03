@@ -147,7 +147,7 @@ export default function App() {
   }
 
   async function handleSaveSpace(
-    data: Pick<Space, "name" | "description" | "color">,
+    data: Pick<Space, "name" | "description" | "color" | "icon">,
   ) {
     try {
       const payload: Space = editingSpace
@@ -157,6 +157,7 @@ export default function App() {
             name: data.name,
             description: data.description,
             color: data.color,
+            icon: data.icon,
             items: [],
             isFavourite: false,
             createdAt: "",

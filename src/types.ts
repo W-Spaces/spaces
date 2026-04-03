@@ -79,6 +79,7 @@ export interface Space {
   name: string;
   description: string;
   color: string;
+  icon?: string;
   items: SpaceItem[];
   isFavourite: boolean;
   createdAt: string;
@@ -102,6 +103,31 @@ export const ITEM_TYPE_LABELS: Record<SpaceItemType, string> = {
   url: "URL",
   script: "Script",
 };
+
+export const SPACE_ICONS = [
+  "Rocket",
+  "Code",
+  "Terminal",
+  "Briefcase",
+  "Home",
+  "Heart",
+  "Star",
+  "Bookmark",
+  "Folder",
+  "Mail",
+  "Calendar",
+  "Camera",
+  "Music",
+  "Video",
+  "Gamepad2",
+  "Coffee",
+  "Book",
+  "GraduationCap",
+  "Wrench",
+  "Settings",
+] as const;
+
+export type SpaceIconName = (typeof SPACE_ICONS)[number];
 
 export const SPACE_COLORS = [
   { value: "blue", label: "Blue", class: "bg-blue-500" },

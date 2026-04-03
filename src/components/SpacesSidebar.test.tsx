@@ -171,12 +171,11 @@ describe("SpacesSidebar", () => {
     // The favourite space button should have an svg star icon
     const favButton = screen.getByRole("button", { name: /fav space/i });
     const normalButton = screen.getByRole("button", { name: /normal space/i });
-    // Favourite space's button contains a star SVG
-    expect(favButton.querySelector("svg")).toBeTruthy();
-    // Normal space's button does not have a star (only has the color dot span, not an extra svg)
-    // We check by counting SVGs: favourite has one (the star), normal has none
-    expect(favButton.querySelectorAll("svg").length).toBe(1);
-    expect(normalButton.querySelectorAll("svg").length).toBe(0);
+    // All spaces have a space icon SVG; favourites additionally have the star SVG
+    // Favourite: space icon + star = 2 SVGs
+    expect(favButton.querySelectorAll("svg").length).toBe(2);
+    // Normal: space icon only = 1 SVG
+    expect(normalButton.querySelectorAll("svg").length).toBe(1);
   });
 
   it("renders favourite spaces before non-favourite spaces", () => {
