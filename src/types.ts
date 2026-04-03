@@ -81,6 +81,18 @@ export interface Space {
   color: string;
   icon?: string;
   items: SpaceItem[];
+  isFavourite: boolean;
+  createdAt: string;
+  updatedAt: string;
+  isFavourite?: boolean;
+}
+
+export interface SpaceGroup {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  spaceIds: string[];
   createdAt: string;
   updatedAt: string;
 }

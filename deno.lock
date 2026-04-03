@@ -33,6 +33,7 @@
     "npm:tailwindcss@^4.2.2": "4.2.2",
     "npm:typescript@~5.8.3": "5.8.3",
     "npm:vite@^7.0.4": "7.3.1",
+    "npm:vitest@4.1.2": "4.1.2_jsdom@29.0.1_vite@7.3.1",
     "npm:vitest@^4.1.2": "4.1.2_jsdom@29.0.1_vite@7.3.1"
   },
   "npm": {
@@ -2170,6 +2171,9 @@
     }
   },
   "workspace": {
+    "dependencies": [
+      "npm:vitest@4.1.2"
+    ],
     "packageJson": {
       "dependencies": [
         "npm:@radix-ui/react-dialog@^1.1.2",

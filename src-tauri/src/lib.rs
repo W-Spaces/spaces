@@ -80,21 +80,37 @@ pub struct Space {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
     pub items: Vec<SpaceItem>,
+    #[serde(default)]
+    pub is_favourite: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SpaceGroup {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub color: String,
+    pub space_ids: Vec<String>,
     pub created_at: String,
     pub updated_at: String,
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// App state – in-memory spaces protected by a Mutex, plus the path to persist
+// App state – in-memory spaces and groups protected by a Mutex, plus the path to persist
 // ──────────────────────────────────────────────────────────────────────────────
 
 pub struct SpacesState {
     pub spaces: Mutex<Vec<Space>>,
+    pub groups: Mutex<Vec<SpaceGroup>>,
     pub data_file: PathBuf,
+    pub groups_file: PathBuf,
 }
 
 impl SpacesState {
-    pub fn load(data_file: PathBuf) -> Self {
+    pub fn load(data_file: PathBuf, groups_file: PathBuf) -> Self {
         let spaces = if data_file.exists() {
             fs::read_to_string(&data_file)
                 .ok()
@@ -103,9 +119,19 @@ impl SpacesState {
         } else {
             Vec::new()
         };
+        let groups = if groups_file.exists() {
+            fs::read_to_string(&groups_file)
+                .ok()
+                .and_then(|s| serde_yaml::from_str(&s).ok())
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         SpacesState {
             spaces: Mutex::new(spaces),
+            groups: Mutex::new(groups),
             data_file,
+            groups_file,
         }
     }
 
@@ -115,6 +141,14 @@ impl SpacesState {
         }
         let yaml_content = serde_yaml::to_string(spaces).map_err(|e| e.to_string())?;
         fs::write(&self.data_file, yaml_content).map_err(|e| e.to_string())
+    }
+
+    fn persist_groups(&self, groups: &[SpaceGroup]) -> Result<(), String> {
+        if let Some(parent) = self.groups_file.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let yaml_content = serde_yaml::to_string(groups).map_err(|e| e.to_string())?;
+        fs::write(&self.groups_file, yaml_content).map_err(|e| e.to_string())
     }
 }
 
@@ -165,6 +199,103 @@ fn delete_space(state: State<SpacesState>, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_groups(state: State<SpacesState>) -> Vec<SpaceGroup> {
+    state.groups.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn save_group(state: State<SpacesState>, group: SpaceGroup) -> Result<SpaceGroup, String> {
+    let mut groups = state.groups.lock().unwrap();
+    let now = Utc::now().to_rfc3339();
+
+    let idx = groups.iter().position(|g| g.id == group.id);
+    let saved = if let Some(i) = idx {
+        let mut updated = group;
+        updated.updated_at = now;
+        groups[i] = updated.clone();
+        updated
+    } else {
+        let mut new_group = group;
+        new_group.id = Uuid::new_v4().to_string();
+        new_group.created_at = now.clone();
+        new_group.updated_at = now;
+        groups.push(new_group.clone());
+        new_group
+    };
+
+    state.persist_groups(&groups)?;
+    Ok(saved)
+}
+
+#[tauri::command]
+fn delete_group(state: State<SpacesState>, id: String) -> Result<(), String> {
+    let mut groups = state.groups.lock().unwrap();
+    let before = groups.len();
+    groups.retain(|g| g.id != id);
+    if groups.len() == before {
+        return Err(format!("Group '{}' not found", id));
+    }
+    state.persist_groups(&groups)
+}
+
+#[tauri::command]
+fn launch_group(state: State<SpacesState>, id: String) -> Result<(), String> {
+    let spaces = state.spaces.lock().unwrap();
+    let groups = state.groups.lock().unwrap();
+
+    let group = groups
+        .iter()
+        .find(|g| g.id == id)
+        .ok_or_else(|| format!("Group '{}' not found", id))?
+        .clone();
+
+    // Get all spaces in the group
+    let group_spaces: Vec<Space> = group
+        .space_ids
+        .iter()
+        .filter_map(|sid| spaces.iter().find(|s| s.id == *sid).cloned())
+        .collect();
+
+    if group_spaces.is_empty() {
+        return Err("Group has no spaces to launch".to_string());
+    }
+
+    eprintln!(
+        "[launch_group] launching group '{}' with {} spaces",
+        group.name,
+        group_spaces.len()
+    );
+
+    // Launch each space on its own virtual desktop
+    for space in &group_spaces {
+        #[cfg(target_os = "windows")]
+        let desktop_id = win32::create_virtual_desktop_with_name(&space.name);
+
+        for item in &space.items {
+            #[cfg(target_os = "windows")]
+            launch_item_with_desktop(item, desktop_id)?;
+            #[cfg(not(target_os = "windows"))]
+            launch_item(item)?;
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+fn toggle_favourite(state: State<SpacesState>, id: String) -> Result<Space, String> {
+    let mut spaces = state.spaces.lock().unwrap();
+    let space = spaces
+        .iter_mut()
+        .find(|s| s.id == id)
+        .ok_or_else(|| format!("Space '{}' not found", id))?;
+    space.is_favourite = !space.is_favourite;
+    let updated = space.clone();
+    state.persist(&spaces)?;
+    Ok(updated)
+}
+
+#[tauri::command]
 fn launch_space(state: State<SpacesState>, id: String) -> Result<(), String> {
     let spaces = state.spaces.lock().unwrap();
     let space = spaces
@@ -203,7 +334,7 @@ fn launch_space(state: State<SpacesState>, id: String) -> Result<(), String> {
     }
 
     #[cfg(target_os = "windows")]
-    let desktop_id = win32::create_virtual_desktop();
+    let desktop_id = win32::create_virtual_desktop_with_name(&space.name);
 
     for item in &space.items {
         #[cfg(target_os = "windows")]
@@ -538,19 +669,25 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            let data_file = app
+            let data_dir = app
                 .path()
                 .app_data_dir()
-                .expect("failed to resolve app data dir")
-                .join("spaces.json");
-            app.manage(SpacesState::load(data_file));
+                .expect("failed to resolve app data dir");
+            let data_file = data_dir.join("spaces.json");
+            let groups_file = data_dir.join("groups.json");
+            app.manage(SpacesState::load(data_file, groups_file));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_spaces,
             save_space,
             delete_space,
+            toggle_favourite,
             launch_space,
+            get_groups,
+            save_group,
+            delete_group,
+            launch_group,
             get_monitors,
         ])
         .run(tauri::generate_context!())
@@ -737,14 +874,17 @@ mod win32 {
         }
     }
 
-    // ── Windows 10/11 virtual desktop via winvd (IVirtualDesktopManagerInternal) ──
-
-    /// Creates a new Windows 10/11 virtual desktop (Task View desktop) and
-    /// switches the display to it. Returns the 0-based desktop index on success,
-    /// or -1 on failure.
-    pub fn create_virtual_desktop() -> i64 {
+    /// Creates a new virtual desktop with the given name and switches to it.
+    /// Returns the 0-based desktop index on success, or -1 on failure.
+    pub fn create_virtual_desktop_with_name(name: &str) -> i64 {
         let count = winvd::get_desktop_count().unwrap_or(0);
         if winvd::create_desktop().is_ok() {
+            // Try to set the desktop name using IVirtualDesktop
+            if let Ok(desktops) = winvd::get_desktops() {
+                if let Some(desktop) = desktops.get(count as usize) {
+                    let _ = desktop.set_name(name);
+                }
+            }
             // Switch the user to the new desktop
             let _ = winvd::switch_desktop(count);
             count as i64
