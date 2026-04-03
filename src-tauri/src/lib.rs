@@ -267,9 +267,9 @@ fn discover_apps_in_dir(dir: &std::path::Path, apps: &mut Vec<DiscoveredApp>) {
             let path = entry.path();
 
             // Check if it's a shortcut (.lnk) file
-            if path.extension().map_or(false, |ext| ext == "lnk") {
+            if path.extension().is_some_and(|ext| ext == "lnk") {
                 if let Ok(target) = resolve_shortcut(&path) {
-                    if target.extension().map_or(false, |ext| ext == "exe") {
+                    if target.extension().is_some_and(|ext| ext == "exe") {
                         let name = path
                             .file_stem()
                             .and_then(|s| s.to_str())
