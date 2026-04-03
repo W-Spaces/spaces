@@ -7,6 +7,7 @@ import {
   Play,
   Pencil,
   Trash2,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -23,6 +24,7 @@ interface SpacesSidebarProps {
   onSelectGroup: (id: string) => void;
   onNew: () => void;
   onNewGroup: () => void;
+  onOpenSettings: () => void;
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -45,6 +47,7 @@ export function SpacesSidebar({
   onSelectGroup,
   onNew,
   onNewGroup,
+  onOpenSettings,
 }: SpacesSidebarProps) {
   const sorted = [...spaces].sort((a, b) => {
     if (a.isFavourite === b.isFavourite) return 0;
@@ -165,6 +168,15 @@ export function SpacesSidebar({
         >
           <Plus className="h-4 w-4" />
           Space
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={onOpenSettings}
+          title="Settings"
+        >
+          <Settings className="h-4 w-4" />
         </Button>
       </div>
 

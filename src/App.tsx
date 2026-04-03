@@ -8,6 +8,7 @@ import { GroupForm } from "@/components/forms/GroupForm";
 import { GroupDetail } from "@/components/GroupDetail";
 import { ItemForm } from "@/components/forms/ItemForm";
 import { WindowPlacementDialog } from "@/components/WindowPlacementDialog";
+import { SettingsDialog } from "@/components/SettingsDialog";
 import { Layers } from "lucide-react";
 import type { Space, SpaceGroup, SpaceItem, WindowPlacement } from "@/types";
 
@@ -33,6 +34,9 @@ export default function App() {
   // Window placement dialog state
   const [placementDialogOpen, setPlacementDialogOpen] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
+  // Settings dialog state
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const loadSpaces = useCallback(async () => {
     try {
@@ -311,6 +315,7 @@ export default function App() {
           }}
           onNew={openNewSpace}
           onNewGroup={openNewGroup}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
 
         <main className="flex-1 overflow-hidden">
@@ -384,6 +389,11 @@ export default function App() {
             setEditingItem(null);
           }}
           onSave={handleSaveItem}
+        />
+
+        <SettingsDialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
         />
       </div>
     </TooltipProvider>

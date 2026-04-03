@@ -322,32 +322,39 @@ fn resolve_shortcut(lnk_path: &std::path::Path) -> Result<std::path::PathBuf, st
 fn extract_icon_from_exe(exe_path: &std::path::Path) -> Option<String> {
     use std::process::Command;
 
-    let exe_str = exe_path.to_string_lossy().replace("'", "''");
+    let exe_str = exe_path.to_string_lossy().replace('\'', "''");
     let ps_script = format!(
-        r#"
-$icon = [System.Drawing.Icon]::ExtractAssociatedIcon('{}')
-$bitmap = $icon.ToBitmap()
-$ms = [System.IO.MemoryStream]::new()
-$bitmap.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
-[Convert]::ToBase64String($ms.ToArray())
-"#,
+        r#"Add-Type -AssemblyName System.Drawing
+try {{
+  $icon = [System.Drawing.Icon]::ExtractAssociatedIcon('{0}')
+  if ($icon -eq $null) {{ exit 1 }}
+  $bitmap = $icon.ToBitmap()
+  $ms = New-Object System.IO.MemoryStream
+  $bitmap.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
+  $bytes = $ms.ToArray()
+  $ms.Dispose()
+  $bitmap.Dispose()
+  $icon.Dispose()
+  [Convert]::ToBase64String($bytes)
+}} catch {{ exit 1 }}"#,
         exe_str
     );
 
     let output = Command::new("powershell")
-        .args(["-NoProfile", "-Command", &ps_script])
+        .args(["-NoProfile", "-NonInteractive", "-Command", &ps_script])
         .output()
         .ok()?;
 
     if output.status.success() {
         let base64 = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !base64.is_empty() && base64.len() < 100_000 {
+        if base64.len() > 100 && base64.len() < 200_000 {
             return Some(base64);
         }
     }
     None
 }
 
+#[tauri::command]
 fn get_groups(state: State<SpacesState>) -> Vec<SpaceGroup> {
     state.groups.lock().unwrap().clone()
 }
@@ -817,6 +824,7 @@ fn launch_item_with_desktop(item: &SpaceItem, desktop_id: i64) -> Result<(), Str
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let data_dir = app
                 .path()
@@ -839,9 +847,46 @@ pub fn run() {
             delete_group,
             launch_group,
             get_monitors,
+            get_config_dir,
+            set_config_dir,
+            pick_config_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Config path – lets the user pick where spaces.json / groups.json are stored
+// ──────────────────────────────────────────────────────────────────────────────
+
+static CONFIG_DIR: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/// Returns the currently configured config directory path.
+#[tauri::command]
+fn get_config_dir() -> Option<String> {
+    CONFIG_DIR.lock().unwrap().clone()
+}
+
+/// Sets the config directory path.
+#[tauri::command]
+fn set_config_dir(path: Option<String>) -> Result<Option<String>, String> {
+    let mut guard = CONFIG_DIR.lock().map_err(|e| e.to_string())?;
+    *guard = path.clone();
+    Ok(path)
+}
+
+/// Picks a folder using the native OS dialog and returns the chosen path.
+#[tauri::command]
+fn pick_config_dir(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let (tx, rx) = std::sync::mpsc::channel::<Option<String>>();
+
+    app.dialog().file().pick_folder(move |folder| {
+        let _ = tx.send(folder.map(|f| f.to_string()));
+    });
+
+    rx.recv().map_err(|e| e.to_string())
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
